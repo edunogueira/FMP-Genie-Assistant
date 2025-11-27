@@ -144,7 +144,7 @@
             ratingTableAnchor = buildRatingTable(skills, posCode, ratingRaw, skillsContainer);
         }
 
-        // set pieces table (usa ratingTableAnchor se existir, senão usa skillsContainer)
+        // set pieces table
         const spAnchor = ratingTableAnchor || skillsContainer;
         buildSetPiecesTable(skills, player.pubTalents, posCode, spAnchor);
 
@@ -155,7 +155,7 @@
     }
 
     // =========================
-    // Data loader (centraliza chamadas)
+    // Data loader
     // =========================
     async function loadPlayerData(pid) {
         const [marketValue, bidInfo, playerData] = await Promise.all([
@@ -331,7 +331,6 @@
             });
         }
 
-        // Monta tabela HTML
         const table = document.createElement("table");
         table.className = "skilltable";
         table.style.marginLeft = "auto";
@@ -532,7 +531,6 @@
         br.insertAdjacentElement("afterend", hint);
         hint.insertAdjacentElement("afterend", table);
 
-        // devolve a tabela como âncora
         return table;
     }
 
@@ -576,7 +574,6 @@
             });
         }
 
-        // For/Rou não entram no rating, mas mantemos
         sk.For = bytes[11] / 10;
         sk.Rou = (bytes[12] * 256 + bytes[13]) / 100;
 
