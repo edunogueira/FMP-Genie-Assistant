@@ -1,52 +1,50 @@
 # FMP Genie Assistant
 
-**FMP Genie Assistant** is a Tampermonkey userscript that enhances the **FootballManagerProject** player page with advanced insights similar to a “Genie Scout”.
+**FMP Genie Assistant** is a Tampermonkey userscript that enhances the **FootballManagerProject** player page with advanced insights similar to a “Genie Scout”.  
 It reveals extended player information, recalculates ratings, evaluates set pieces, interprets talents, and displays tactical suggestions directly inside the UI.
 
 ---
 
 ## Features
 
-### **1. Extended Player Rating Engine**
+### 1. Extended Player Rating Engine
 
-* Recalculates ratings using official FMP positional weight tables.
-* Highlights:
-
-  * **Current position** (yellow)
-  * **Best alternative position** (green)
-* Includes:
-
-  * GK-specific weight profiles
-  * Group logic for DL/DR and ML/MR
-  * Position prediction factor based on the real rating
+- Recalculates ratings using official FMP positional weight tables.
+- Highlights:
+  - **Current position** (yellow)
+  - **Best alternative position** (green)
+- Includes:
+  - GK-specific weight profiles
+  - Group logic for DL/DR and ML/MR
+  - Position prediction factor based on the real in-game rating
 
 ---
 
-### **2. Set Piece Effectiveness Analyzer**
+### 2. Set Piece Effectiveness Analyzer
 
 Implements the documented formulas:
 
 #### Corner kicks
 
-```
+```text
 Tec + Cro + 0.5 * Lon
-```
+````
 
 #### Freekicks
 
-```
+```text
 Tec + Cro + 0.5 * Lon
 ```
 
 #### Direct freekicks
 
-```
+```text
 Tec + Fin + 0.5 * Lon
 ```
 
 #### Penalties
 
-```
+```text
 Tec + 1.5 * Fin
 ```
 
@@ -67,7 +65,32 @@ Tec + 1.5 * Fin
 
 ---
 
-### **3. Market and Financial Data**
+### 3. Tactical Performance by Tactic (Fil / Sho / Lon / Cou / Win)
+
+Uses the official **gain matrices** from the FMP documentation (attacking + defensive charts) to estimate how well a player fits each tactic in his current position.
+
+For every player:
+
+* Maps FMP role (DC, DL, MC, ML, MR, FC, FL, FR) to the corresponding **zone**.
+* Applies the tactic gain matrices for:
+
+  * **Fil** – Through passes
+  * **Sho** – Short passes
+  * **Lon** – Long passes
+  * **Cou** – Counter-attack
+  * **Win** – Wings attack
+* Computes a **Tactical Score** per tactic based on the relevant skills (Pac, Mar, Tak, Tec, Pas, Pos, Cro, Hea, Fin, Lon).
+* Displays a compact table:
+
+  * One row per tactic
+  * Numeric score
+  * **Best tactic highlighted in green**
+
+> Note: The gain matrices are approximated from the official visual heatmaps and can be fine-tuned inside `TACTIC_GAINS` if you want exact values.
+
+---
+
+### 4. Market and Financial Data
 
 * Market value
 * Agent value
@@ -75,11 +98,11 @@ Tec + 1.5 * Fin
 * Maximum bid
 * Bot team detection
 
-Values pulled from the same public endpoints the FMP UI uses.
+Values are pulled from the same public endpoints the FMP UI uses.
 
 ---
 
-### **4. Talent Interpretation**
+### 5. Talent Interpretation
 
 Displays real gameplay impact of:
 
@@ -88,11 +111,11 @@ Displays real gameplay impact of:
 * **Strength** talent (weather performance)
 * GK height bonus: **+3% effectiveness every 5 cm above 185 cm**
 
-These affect in-match performance, not the rating shown on the profile page.
+These affect in-match performance, not just the rating shown on the profile page.
 
 ---
 
-### **5. Clean UI Integration**
+### 6. Clean UI Integration
 
 * Injects seamlessly below the existing skill section
 * Uses compact `skilltable` layout
@@ -104,10 +127,10 @@ These affect in-match performance, not the rating shown on the profile page.
 ## Installation
 
 1. Install **Tampermonkey** in your browser.
-2. **[Click here to install the userscript](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPGenieAssistant.user.js)**
+2. **[Click here to install the userscript](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPGenieAssistant.user.js)**.
 3. Visit any player page:
 
-```
+```text
 https://footballmanagerproject.com/Team/Player?id=XXXX
 ```
 
@@ -126,7 +149,7 @@ cd FMP-Genie-Assistant
 
 ### Suggested structure
 
-```
+```text
 FMP-Genie-Assistant/
   ├── FMPGenieAssistant.user.js
   ├── README.md
@@ -135,7 +158,7 @@ FMP-Genie-Assistant/
 
 ### Local testing
 
-1. Open Tampermonkey → *Create New Script*
+1. Open Tampermonkey → **Create New Script**
 2. Paste the content of `FMPGenieAssistant.user.js`
 3. Save & enable
 4. Reload an FMP player page
@@ -169,9 +192,12 @@ Both scripts provided useful structural references for AJAX requests, rating ext
 
 The **FMP Genie Assistant** project expands, refactors, and unifies these ideas into a modern, modular, fully documented, and extended version, adding:
 
-* set piece modeling
-* advanced rating prediction
-* talent impact analysis
+* Set piece modeling
+* Advanced rating prediction
+* Talent impact analysis
 * GK height effectiveness
-* cleaner architecture
-* consolidated UI integration
+* Tactical performance by tactic (Fil / Sho / Lon / Cou / Win)
+* Cleaner architecture
+* Consolidated UI integration
+
+```
