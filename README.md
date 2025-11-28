@@ -1,54 +1,73 @@
 # FMP Genie Assistant
 
-**FMP Genie Assistant** is a Tampermonkey userscript that enhances the **FootballManagerProject** player page with advanced insights similar to a “Genie Scout”.  
-It reveals extended player information, recalculates ratings, evaluates set pieces, interprets talents, and displays tactical suggestions directly inside the UI.
+**FMP Genie Assistant** is a Tampermonkey userscript that enhances the **FootballManagerProject** player page with advanced analytical tools.
+It recalculates positional ratings, estimates positional and tactical gains, models set-piece effectiveness, and displays skill-by-skill breakdowns directly inside the existing UI.
+
+The script behaves like an in-browser “Genie Scout” for FMP.
 
 ---
 
 ## Features
 
-### 1. Extended Player Rating Engine
+---
 
-- Recalculates ratings using official FMP positional weight tables.
-- Highlights:
-  - **Current position** (yellow)
-  - **Best alternative position** (green)
-- Includes:
-  - GK-specific weight profiles
-  - Group logic for DL/DR and ML/MR
-  - Position prediction factor based on the real in-game rating
+## 1. Recalculated Positional Rating
+
+The script recomputes the player’s rating for every position using the **official FMP weight tables**.
+
+Includes:
+
+* Exact weight profiles for GK and outfield positions
+* Group logic for dual positions (DL/DR, ML/MR, OML/OMR)
+* Highlighting:
+
+  * **Yellow** → the player’s current position
+  * **Green** → best alternative position
+* Rating normalization based on the player’s real in-game rating
+
+A complete rating matrix is displayed below the skill card.
 
 ---
 
-### 2. Set Piece Effectiveness Analyzer
+## 2. Position Gain Breakdown
 
-Implements the documented formulas:
+Each FMP position grants internal skill multipliers (hidden gains).
+The script exposes these gains clearly.
 
-#### Corner kicks
+For each position:
 
-```text
-Tec + Cro + 0.5 * Lon
-````
+* Shows **Original**, **Gain**, **Bonus**, and **Δ (difference)**
+* Button opens a detailed modal with a full skill-by-skill breakdown
+* Button label shows the **total positional gain**
+* Best position by gain is automatically highlighted
 
-#### Freekicks
+The table respects the exact attribute order used by the game engine.
 
-```text
+---
+
+## 3. Set Piece Effectiveness Model
+
+Fully implements the documented set-piece formulas used in FMP.
+
+### Corner / Freekick:
+
+```
 Tec + Cro + 0.5 * Lon
 ```
 
-#### Direct freekicks
+### Direct Freekick:
 
-```text
+```
 Tec + Fin + 0.5 * Lon
 ```
 
-#### Penalties
+### Penalty:
 
-```text
+```
 Tec + 1.5 * Fin
 ```
 
-#### Set Pieces Talent Bonus
+### Talent bonus (public SET talent):
 
 | Talent | Bonus |
 | ------ | ----- |
@@ -57,99 +76,95 @@ Tec + 1.5 * Fin
 | 3      | 35%   |
 | 4      | 80%   |
 
-#### Goalkeepers
+### Goalkeepers:
 
-* Uses **Kick** skill only
-* Applies ~40% penalty to freekick effectiveness
-* Full set-piece score table displayed under the skill card
+* Uses only **Kick**
+* Freekicks scaled down (~40%)
+* Dedicated GK set-piece table displayed below the skills
 
----
-
-### 3. Tactical Performance by Tactic (Fil / Sho / Lon / Cou / Win)
-
-Uses the official **gain matrices** from the FMP documentation (attacking + defensive charts) to estimate how well a player fits each tactic in his current position.
-
-For every player:
-
-* Maps FMP role (DC, DL, MC, ML, MR, FC, FL, FR) to the corresponding **zone**.
-* Applies the tactic gain matrices for:
-
-  * **Fil** – Through passes
-  * **Sho** – Short passes
-  * **Lon** – Long passes
-  * **Cou** – Counter-attack
-  * **Win** – Wings attack
-* Computes a **Tactical Score** per tactic based on the relevant skills (Pac, Mar, Tak, Tec, Pas, Pos, Cro, Hea, Fin, Lon).
-* Displays a compact table:
-
-  * One row per tactic
-  * Numeric score
-  * **Best tactic highlighted in green**
-
-> Note: The gain matrices are approximated from the official visual heatmaps and can be fine-tuned inside `TACTIC_GAINS` if you want exact values.
+All values are computed directly from real player skills.
 
 ---
 
-### 4. Market and Financial Data
+## 4. Tactical Performance by Tactic (Fil / Sho / Lon / Cou / Win)
 
-* Market value
-* Agent value
-* Minimum bid
-* Maximum bid
-* Bot team detection
+Uses the official **tactic gain matrices** to estimate how well the player fits each tactic in his tactical zone.
 
-Values are pulled from the same public endpoints the FMP UI uses.
+Process:
+
+1. Converts `fp` (DC, DL, MC, ML, MR, FC, OML/OMR/FL/FR) into a **tactical zone**
+2. Applies gain matrices for:
+
+   * **Fil** – Through passes
+   * **Sho** – Short passes
+   * **Lon** – Long passes
+   * **Cou** – Counter attack
+   * **Win** – Wing attack
+3. Calculates a **Tactical Score** for each tactic
+4. Displays:
+
+   * One row per tactic
+   * Score button (opens modal with skill breakdown)
+   * Best tactic highlighted in green
+
+The matrices are stored in `TACTIC_GAINS` and can be fine-tuned manually.
 
 ---
 
-### 5. Talent Interpretation
+## 5. Talent Rendering
 
-Displays real gameplay impact of:
+The script appends the **actual numeric values** of the public talents directly in the existing talent table:
 
-* **Agility** talent
-* **Set Pieces** talent
-* **Strength** talent (weather performance)
-* GK height bonus: **+3% effectiveness every 5 cm above 185 cm**
+* ADA
+* AGI
+* SET
+* STR
 
-These affect in-match performance, not just the rating shown on the profile page.
+Keeps the original UI layout intact.
 
 ---
 
-### 6. Clean UI Integration
+## 6. Clean and Native UI Integration
 
-* Injects seamlessly below the existing skill section
-* Uses compact `skilltable` layout
-* `<th>` automatically sized with `min-width: 38px`
-* Designed to blend with the FootballManagerProject layout
+* Uses the original modal system (`uiMessageBox`)
+* Injects tables using the site’s styling (`skilltable`)
+* No layout breaks
+* No external libraries
+* Loads automatically when the player page is ready
 
 ---
 
 ## Installation
 
 1. Install **Tampermonkey** in your browser.
-2. **[Click here to install the userscript](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPGenieAssistant.user.js)**.
-3. Visit any player page:
+2. Install the script:
 
-```text
-https://footballmanagerproject.com/Team/Player?id=XXXX
+```
+https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPGenieAssistant.user.js
 ```
 
-The assistant loads automatically.
+3. Open any player page:
+
+```
+https://footballmanagerproject.com/Team/Player?id=XXXXX
+```
+
+The assistant loads instantly.
 
 ---
 
 ## Development
 
-Clone the repository:
+Clone:
 
 ```bash
 git clone https://github.com/edunogueira/FMP-Genie-Assistant.git
 cd FMP-Genie-Assistant
 ```
 
-### Suggested structure
+### Recommended structure
 
-```text
+```
 FMP-Genie-Assistant/
   ├── FMPGenieAssistant.user.js
   ├── README.md
@@ -158,9 +173,9 @@ FMP-Genie-Assistant/
 
 ### Local testing
 
-1. Open Tampermonkey → **Create New Script**
+1. Tampermonkey → Create new script
 2. Paste the content of `FMPGenieAssistant.user.js`
-3. Save & enable
+3. Save
 4. Reload an FMP player page
 
 ---
@@ -168,36 +183,12 @@ FMP-Genie-Assistant/
 ## Disclaimer
 
 This project is **not affiliated** with FootballManagerProject.
-It uses only public endpoints already called by the official site.
-
----
-
-## License
-
-MIT
+It uses only public data already retrieved by the official website.
 
 ---
 
 ## Credits
 
-The initial foundation of this userscript was inspired by work from **[紫竹FC](https://footballmanagerproject.com/Team/Board/?id=5283)**, author of:
-
-* **FMP Rating**
-  [https://greasyfork.org/scripts/527946](https://greasyfork.org/scripts/527946)
-
-* **FMP More Player Info**
-  [https://greasyfork.org/scripts/508685](https://greasyfork.org/scripts/508685)
-
-Both scripts provided useful structural references for AJAX requests, rating extraction, and basic UI injection.
+The initial foundation of this userscript was inspired by work from **[紫竹FC](https://footballmanagerproject.com/Team/Board/?id=5283)**.
 
 The **FMP Genie Assistant** project expands, refactors, and unifies these ideas into a modern, modular, fully documented, and extended version, adding:
-
-* Set piece modeling
-* Advanced rating prediction
-* Talent impact analysis
-* GK height effectiveness
-* Tactical performance by tactic (Fil / Sho / Lon / Cou / Win)
-* Cleaner architecture
-* Consolidated UI integration
-
-```
