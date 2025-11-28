@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         FMP Genie Assistant
 // @namespace    https://github.com/edunogueira/FMP-Genie-Assistant
-// @version      1.0
-// @description  Show extra player info (ID, rating, market, bids, birthday, talents, position ratings, set pieces, tactics).
+// @version      1.1
+// @description  Show extra player info (ID, rating, birthday, talents, position ratings, set pieces, tactics).
 // @match        https://footballmanagerproject.com/Team/Player*
 // @match        https://www.footballmanagerproject.com/Team/Player*
 // @grant        none
@@ -28,16 +28,12 @@
     // Text / labels
     // ========================================
     const TEXT = {
-        boxTitle:       "More information",
-        marketValue:    "Market value",
-        agentValue:     "Agent value",
-        minBid:         "Minimum bid",
-        maxBid:         "Maximum bid",
         rating:         "Rating",
         id:             "ID",
         birthday:       "Birthday",
         positionColumn: "Position",
         ratingHint:     "*For reference only",
+        positionGain:   "Pos. gain",
         weekday:        ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     };
 
@@ -46,8 +42,10 @@
     // ========================================
     const GK_SKILLS = ["Han", "One", "Ref", "Aer", "Jum", "Ele", "Kic", "Thr", "Pos", "Sta", "Pac"];
     const OF_SKILLS = ["Mar", "Tak", "Tec", "Pas", "Cro", "Fin", "Hea", "Lon", "Pos", "Sta", "Pac"];
+    // Display order for outfield attributes (position/tactical gains)
+    const OF_DISPLAY_ORDER = ["Sta", "Pac", "Mar", "Tak", "Pos", "Pas", "Cro", "Tec", "Hea", "Fin", "Lon"];
 
-    // Same weights as the original rating script
+    // rating weights
     const RATING_WEIGHTS = {
         0:  [1.2, 0.7, 1.2, 0.6, 0.7, 0.4, 0.5, 0.5, 0.6, 0.5, 0.4], // GK
         4:  [1.0, 1.0, 0.5, 0.6, 0.2, 0.2, 1.0, 0.3, 1.0, 0.7, 0.8], // DC
@@ -97,63 +95,93 @@
     // ========================================
     const TACTIC_GAINS = {
         Fil: {
-            DC: { Pac:0.0, Mar:0.1, Tak:0.0, Tec:0.0, Pas:0.75, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            DL: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.75, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            DR: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.75, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            MC: { Pac:0.0, Mar:0.25, Tak:0.75, Tec:0.75, Pas:1.0, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            ML: { Pac:0.0, Mar:0.1,  Tak:0.25, Tec:0.5,  Pas:0.75, Pos:0.25, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            MR: { Pac:0.0, Mar:0.1,  Tak:0.25, Tec:0.5,  Pas:0.75, Pos:0.25, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            FC: { Pac:0.0, Mar:0.0,  Tak:0.1,  Tec:0.5,  Pas:0.75, Pos:0.0,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.25 },
-            FL: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.25, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.1 },
-            FR: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.25, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.1 }
+            DC: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.9, Pas:0.8, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.3 },
+            DL: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.6, Pas:0.7, Pos:0.0, Cro:0.2, Hea:0.0, Fin:0.0, Lon:0.3 },
+            DR: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.6, Pas:0.7, Pos:0.0, Cro:0.2, Hea:0.0, Fin:0.0, Lon:0.3 },
+            MC: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.8, Pas:1.0, Pos:0.2, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.3, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.8, Pos:0.0, Cro:0.4, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.3, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.8, Pos:0.0, Cro:0.4, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.2, Mar:0.0, Tak:0.4, Tec:0.2, Pas:0.2, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.6, Cro:0.0, Hea:0.2, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.6, Cro:0.0, Hea:0.2, Fin:0.0, Lon:0.0 }
         },
         Sho: {
-            DC: { Pac:0.0, Mar:0.25, Tak:0.75, Tec:0.0,  Pas:0.5,  Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            DL: { Pac:0.0, Mar:0.5,  Tak:1.0,  Tec:0.5,  Pas:0.75, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            DR: { Pac:0.0, Mar:0.5,  Tak:1.0,  Tec:0.5,  Pas:0.75, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            MC: { Pac:0.0, Mar:0.25, Tak:0.75, Tec:0.75, Pas:1.0,  Pos:0.75, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            ML: { Pac:0.0, Mar:0.25, Tak:0.5,  Tec:0.75, Pas:0.75, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            MR: { Pac:0.0, Mar:0.25, Tak:0.5,  Tec:0.75, Pas:0.75, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            FC: { Pac:0.0, Mar:0.0,  Tak:0.25, Tec:0.5,  Pas:0.5,  Pos:0.0,  Cro:0.0, Hea:0.0, Fin:0.25, Lon:0.0 },
-            FL: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.25, Pos:0.25, Cro:0.0, Hea:0.25,Fin:0.0, Lon:0.0 },
-            FR: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.25, Pos:0.25, Cro:0.0, Hea:0.25,Fin:0.0, Lon:0.0 }
+            DC: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.9, Pas:0.7, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.6, Pas:0.7, Pos:0.4, Cro:0.3, Hea:0.0, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.6, Pas:0.7, Pos:0.4, Cro:0.3, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.7, Pas:0.9, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.8, Pos:0.3, Cro:0.4, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.8, Pos:0.3, Cro:0.4, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.5, Cro:0.0, Hea:0.3, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.5, Cro:0.0, Hea:0.3, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.5, Cro:0.0, Hea:0.3, Fin:0.0, Lon:0.0 }
         },
         Lon: {
-            DC: { Pac:0.25,Mar:0.0,  Tak:0.25, Tec:0.0,  Pas:0.0,  Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            DL: { Pac:0.0, Mar:0.25, Tak:0.5,  Tec:0.0,  Pas:0.0,  Pos:0.75, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.1 },
-            DR: { Pac:0.0, Mar:0.25, Tak:0.5,  Tec:0.0,  Pas:0.0,  Pos:0.75, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.1 },
-            MC: { Pac:0.0, Mar:0.25, Tak:0.75, Tec:0.5,  Pas:0.5,  Pos:0.75, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.75 },
-            ML: { Pac:0.0, Mar:0.25, Tak:0.5,  Tec:0.25, Pas:0.25, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:1.0 },
-            MR: { Pac:0.0, Mar:0.25, Tak:0.5,  Tec:0.25, Pas:0.25, Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:1.0 },
-            FC: { Pac:0.0, Mar:0.0,  Tak:0.25, Tec:0.25, Pas:0.0,  Pos:0.25, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.75 },
-            FL: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.0,  Pos:0.1,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.25 },
-            FR: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.0,  Pos:0.1,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.25 }
+            DC: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.6, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.9 },
+            DL: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.2, Hea:0.0, Fin:0.0, Lon:0.9 },
+            DR: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.2, Hea:0.0, Fin:0.0, Lon:0.9 },
+            MC: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.6, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.7 },
+            ML: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.4, Pos:0.0, Cro:0.2, Hea:0.0, Fin:0.0, Lon:0.7 },
+            MR: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.4, Pos:0.0, Cro:0.2, Hea:0.0, Fin:0.0, Lon:0.7 },
+            FC: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.3, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.5, Pos:0.5, Cro:0.3, Hea:0.2, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.5, Pos:0.5, Cro:0.3, Hea:0.2, Fin:0.0, Lon:0.0 }
         },
         Cou: {
-            DC: { Pac:0.75,Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.0,  Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            DL: { Pac:0.5, Mar:0.25, Tak:0.0,  Tec:0.0,  Pas:0.5,  Pos:0.25, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            DR: { Pac:0.5, Mar:0.25, Tak:0.0,  Tec:0.0,  Pas:0.5,  Pos:0.25, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            MC: { Pac:0.0, Mar:0.5,  Tak:0.75, Tec:0.0,  Pas:0.5,  Pos:0.5,  Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            ML: { Pac:0.0, Mar:1.0,  Tak:0.25, Tec:0.0,  Pas:0.25, Pos:0.25, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            MR: { Pac:0.0, Mar:1.0,  Tak:0.25, Tec:0.0,  Pas:0.25, Pos:0.25, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            FC: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.0,  Pos:0.0,  Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
-            FL: { Pac:0.0, Mar:0.0,  Tak:0.25, Tec:0.0,  Pas:0.0,  Pos:0.0,  Cro:0.0, Hea:0.25,Fin:0.0, Lon:0.0 },
-            FR: { Pac:0.0, Mar:0.0,  Tak:0.25, Tec:0.0,  Pas:0.0,  Pos:0.0,  Cro:0.0, Hea:0.25,Fin:0.0, Lon:0.0 }
+            DC: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.3, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.3, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.3, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.3, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.3, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.5, Pas:0.5, Pos:0.3, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.4, Pas:0.4, Pos:0.3, Cro:0.0, Hea:0.2, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.4, Pas:0.4, Pos:0.3, Cro:0.0, Hea:0.2, Fin:0.0, Lon:0.0 }
         },
         Win: {
-            DC: { Pac:0.25,Mar:0.0,  Tak:0.25, Tec:0.0,  Pas:0.0,  Pos:0.5,  Cro:0.0, Hea:0.25,Fin:0.0, Lon:0.0 },
-            DL: { Pac:0.75,Mar:0.25, Tak:0.25, Tec:0.0,  Pas:0.25, Pos:0.75, Cro:0.0, Hea:0.25,Fin:0.0, Lon:0.0 },
-            DR: { Pac:0.75,Mar:0.25, Tak:0.25, Tec:0.0,  Pas:0.25, Pos:0.75, Cro:0.0, Hea:0.25,Fin:0.0, Lon:0.0 },
-            MC: { Pac:0.0, Mar:0.75, Tak:0.75, Tec:0.25, Pas:0.25, Pos:0.75, Cro:0.5, Hea:0.0, Fin:0.0, Lon:0.0 },
-            ML: { Pac:0.0, Mar:0.75, Tak:0.25, Tec:0.25, Pas:0.25, Pos:0.5,  Cro:1.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            MR: { Pac:0.0, Mar:0.75, Tak:0.25, Tec:0.25, Pas:0.25, Pos:0.5,  Cro:1.0, Hea:0.0, Fin:0.0, Lon:0.0 },
-            FC: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.0,  Pos:0.25, Cro:0.5, Hea:0.5, Fin:0.0, Lon:0.0 },
-            FL: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.0,  Pos:0.25, Cro:0.75,Hea:0.0, Fin:0.0, Lon:0.0 },
-            FR: { Pac:0.0, Mar:0.0,  Tak:0.0,  Tec:0.0,  Pas:0.0,  Pos:0.25, Cro:0.75,Hea:0.0, Fin:0.0, Lon:0.0 }
+            DC: { Pac:0.4, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.6, Pos:0.2, Cro:0.5, Hea:0.0, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.3, Cro:0.5, Hea:0.0, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.3, Cro:0.5, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.4, Pas:0.6, Pos:0.0, Cro:0.3, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.6, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.7, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.6, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.7, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.8, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.8, Hea:0.0, Fin:0.0, Lon:0.0 }
         }
     };
 
     const TACTICS = ["Fil", "Sho", "Lon", "Cou", "Win"];
+
+    const POSITION_GAINS = {
+        // ============================
+        // CENTER PLAYERS
+        // ============================
+        4:  { Sta:0.7, Pac:0.8, Mar:1.0, Tak:1.0, Tec:0.5, Pas:0.6, Pos:1.0, Cro:0.2, Hea:1.0, Fin:0.2, Lon:0.3 },
+        8:  { Sta:1.0, Pac:0.5, Mar:0.8, Tak:0.8, Tec:0.7, Pas:0.8, Pos:1.0, Cro:0.2, Hea:0.7, Fin:0.3, Lon:0.5 },
+        16: { Sta:1.0, Pac:0.5, Mar:0.5, Tak:0.5, Tec:1.0, Pas:1.0, Pos:1.0, Cro:0.3, Hea:0.5, Fin:0.5, Lon:0.5 },
+        32: { Sta:1.0, Pac:0.5, Mar:0.3, Tak:0.3, Tec:1.0, Pas:1.0, Pos:0.8, Cro:0.3, Hea:0.5, Fin:0.8, Lon:0.8 },
+        64: { Sta:0.7, Pac:0.7, Mar:0.2, Tak:0.2, Tec:0.7, Pas:0.7, Pos:0.7, Cro:0.4, Hea:1.0, Fin:1.0, Lon:1.0 },
+
+        // ============================
+        // SIDE PLAYERS
+        // ============================
+        5:  { Sta:0.8, Pac:0.8, Mar:0.9, Tak:0.9, Tec:0.6, Pas:0.5, Pos:0.7, Cro:0.7, Hea:0.7, Fin:0.3, Lon:0.4 },
+        6:  { Sta:0.8, Pac:0.8, Mar:0.9, Tak:0.9, Tec:0.6, Pas:0.5, Pos:0.7, Cro:0.7, Hea:0.7, Fin:0.3, Lon:0.4 },
+        9:  { Sta:0.9, Pac:0.9, Mar:0.7, Tak:0.7, Tec:0.7, Pas:0.6, Pos:0.7, Cro:0.9, Hea:0.4, Fin:0.3, Lon:0.5 },
+        10: { Sta:0.9, Pac:0.9, Mar:0.7, Tak:0.7, Tec:0.7, Pas:0.6, Pos:0.7, Cro:0.9, Hea:0.4, Fin:0.3, Lon:0.5 },
+        17: { Sta:0.9, Pac:1.0, Mar:0.3, Tak:0.3, Tec:0.8, Pas:0.8, Pos:0.7, Cro:1.0, Hea:0.3, Fin:0.5, Lon:0.5 },
+        18: { Sta:0.9, Pac:1.0, Mar:0.3, Tak:0.3, Tec:0.8, Pas:0.8, Pos:0.7, Cro:1.0, Hea:0.3, Fin:0.5, Lon:0.5 },
+        33: { Sta:0.8, Pac:1.0, Mar:0.2, Tak:0.2, Tec:0.9, Pas:0.7, Pos:0.7, Cro:1.0, Hea:0.4, Fin:0.7, Lon:0.7 },
+        34: { Sta:0.8, Pac:1.0, Mar:0.2, Tak:0.2, Tec:0.9, Pas:0.7, Pos:0.7, Cro:1.0, Hea:0.4, Fin:0.7, Lon:0.7 },
+
+        // ============================
+        // GOALKEEPERS
+        // ============================
+        0: {
+            Sta:0.3, Pac:0.2, Han:1.0, One:0.5, Ref:1.0, Aer:0.4, Pos:0.4, Jum:0.5, Kic:0.3, Ele:0.2, Thr:0.3
+        }
+    };
 
     // ========================================
     // URL / early exit
@@ -170,13 +198,12 @@
         if (started) return;
 
         const infoTable = document.getElementsByClassName("infotable")[0];
-        const actionsBoard = document.getElementById("ActionsBoard");
         const skillsContainer = document.querySelector(".d-flex.flex-wrap.justify-content-around");
 
-        if (infoTable && infoTable.firstChild && actionsBoard && skillsContainer) {
+        if (infoTable && infoTable.firstChild && skillsContainer) {
             started = true;
             observer.disconnect();
-            run(playerId, infoTable, actionsBoard, skillsContainer)
+            run(playerId, infoTable, skillsContainer)
                 .catch(e => console.error("[FMP Genie] Error:", e));
         }
     });
@@ -186,11 +213,11 @@
     // ========================================
     // Main flow
     // ========================================
-    async function run(pid, infoTable, actionsBoard, skillsContainer) {
+    async function run(pid, infoTable, skillsContainer) {
         const data = await loadPlayerData(pid);
         if (!data) return;
 
-        const { player, marketValue, bidInfo } = data;
+        const { player } = data;
         const ratingRaw   = player.marketInfo?.rating ?? null;
         const ratingValue = ratingRaw != null ? ratingRaw / 10 : null;
         const posCode     = fpToPos(player.fp);
@@ -208,7 +235,7 @@
 
         // position ratings table
         let ratingTableAnchor = null;
-        if (skills && posCode !== 0 && ratingRaw != null) {
+        if (skills && ratingRaw != null) {
             ratingTableAnchor = buildRatingTable(skills, posCode, ratingRaw, skillsContainer);
         }
 
@@ -216,68 +243,25 @@
         const spAnchor = ratingTableAnchor || skillsContainer;
         buildSetPiecesTable(skills, player.pubTalents, posCode, spAnchor);
 
-        // more info box (market / bids / rating)
-        buildMoreInfoBox(actionsBoard, { marketValue, bidInfo, ratingValue });
-
         // tactics table
         buildTacticsTable(skills, player.fp, spAnchor);
 
-        console.log("[FMP Genie] Extra info loaded.", { player, marketValue, bidInfo, skills, posCode });
+        console.log("[FMP Genie] Extra info loaded.", { player, skills, posCode });
     }
 
     // ========================================
     // Data loading (API wrappers)
     // ========================================
     async function loadPlayerData(pid) {
-        const [marketValue, bidInfo, playerData] = await Promise.all([
-            apiGetMarketValue(pid),
-            apiGetBidInfo(pid),
+        const [playerData] = await Promise.all([
             apiGetPlayerData(pid)
         ]);
 
         if (!playerData || !playerData.player) return null;
 
         return {
-            marketValue,
-            bidInfo,
             player: playerData.player
         };
-    }
-
-    function apiGetMarketValue(pid) {
-        return new Promise(resolve => {
-            $.ajax({
-                type: "GET",
-                url: "/Players/GetPlayerMarketValue",
-                data: { playerid: pid },
-                success: res => resolve(res?.marketValue ?? null),
-                error: () => resolve(null)
-            });
-        });
-    }
-
-    function apiGetBidInfo(pid) {
-        return new Promise(resolve => {
-            $.ajax({
-                type: "POST",
-                url: "/Players/GetDirectBidInfo",
-                dataType: "json",
-                contentType: "application/json; charset=utf-8",
-                data: JSON.stringify({ playerid: pid }),
-                success: res => {
-                    if (res && res.player) {
-                        resolve({
-                            isBotTeam:  res.player.isBotTeam,
-                            maxBid:     res.player.maxBid,
-                            minimumBid: res.player.minimumBid
-                        });
-                    } else {
-                        resolve(null);
-                    }
-                },
-                error: () => resolve(null)
-            });
-        });
     }
 
     function apiGetPlayerData(pid) {
@@ -315,8 +299,8 @@
         const weekday = TEXT.weekday[baseDate.getDay()] || "";
 
         const content =
-            `<span title="${weekday}">${birthdayIndex}</span>` +
-            ` <span>${weekday}</span>`;
+              `<span title="${weekday}">${birthdayIndex}</span>` +
+              ` <span>${weekday}</span>`;
 
         appendRow(table, TEXT.birthday, content);
     }
@@ -355,14 +339,16 @@
                 type: "Freekick (GK)",
                 base: baseFk,
                 bonus: bonusPct,
-                final: finalFk
+                final: finalFk,
+                title: "SPk * (Tec + Cro + 0.5 * Lon)"
             });
 
             rows.push({
                 type: "Penalty (GK)",
                 base: baseFk,
                 bonus: bonusPct,
-                final: finalPk
+                final: finalPk,
+                title: "SPk * (Tec + 1.5 * Fin)"
             });
         } else {
             // Outfield player set pieces
@@ -380,28 +366,32 @@
                 type: "Corner",
                 base: baseCorner,
                 bonus: bonusPct,
-                final: baseCorner * mult
+                final: baseCorner * mult,
+                title: "SPk * (Tec + Cro + 0.5 * Lon)"
             });
 
             rows.push({
                 type: "Freekick",
                 base: baseFreekick,
                 bonus: bonusPct,
-                final: baseFreekick * mult
+                final: baseFreekick * mult,
+                title: "SPk * (Tec + Cro + 0.5 * Lon)"
             });
 
             rows.push({
                 type: "Direct FK",
                 base: baseDirect,
                 bonus: bonusPct,
-                final: baseDirect * mult
+                final: baseDirect * mult,
+                title: "SPk * (Tec + Fin + 0.5 * Lon)"
             });
 
             rows.push({
                 type: "Penalty",
                 base: basePenalty,
                 bonus: bonusPct,
-                final: basePenalty * mult
+                final: basePenalty * mult,
+                title: "SPk * (Tec + 1.5 * Fin)"
             });
         }
 
@@ -412,25 +402,25 @@
         table.style.marginTop = "4px";
 
         const header =
-            "<tr>" +
-            "<th>Set piece type</th>" +
-            "<th>Base score</th>" +
-            "<th>Talent bonus (%)</th>" +
-            "<th>Final score</th>" +
-            "</tr>";
+              "<tr>" +
+              "<th>Set piece type</th>" +
+              "<th>Base score</th>" +
+              "<th>Talent bonus (%)</th>" +
+              "<th>Final score</th>" +
+              "</tr>";
 
         const body = rows
-            .map(r => {
-                return (
-                    "<tr>" +
-                    `<td>${r.type}</td>` +
-                    `<td>${r.base.toFixed(1)}</td>` +
-                    `<td>${r.bonus.toFixed(1)}</td>` +
-                    `<td>${r.final.toFixed(1)}</td>` +
-                    "</tr>"
-                );
-            })
-            .join("");
+        .map(r => {
+            return (
+                "<tr>" +
+                `<td title="${r.title}">${r.type}</td>` +
+                `<td>${r.base.toFixed(1)}</td>` +
+                `<td>${r.bonus.toFixed(1)}</td>` +
+                `<td>${r.final.toFixed(1)}</td>` +
+                "</tr>"
+            );
+        })
+        .join("");
 
         table.innerHTML = `<tbody>${header}${body}</tbody>`;
 
@@ -477,11 +467,67 @@
         return { zone, scores };
     }
 
-    function buildTacticsTable(skills, playerFp, anchorElement) {
-        const result = getTacticalScoresForPlayer(skills, playerFp);
-        if (!result || !anchorElement) return;
+    function buildTactialGainsTable(tactic, skills, playerFp) {
+        const zone = fpToTacticZone(playerFp);
+        if (!zone) return { html: "<div>No tactic zone for this position.</div>", total: 0 };
 
-        const { scores } = result;
+        const gainsByZone = TACTIC_GAINS[tactic];
+        if (!gainsByZone) return { html: "<div>No gain data for this tactic.</div>", total: 0 };
+
+        const gains = gainsByZone[zone];
+        if (!gains) return { html: "<div>No gain data for this tactic/zone.</div>", total: 0 };
+
+        let totalDiff = 0;
+
+        let html =
+            "<table class='skilltable' style='margin:auto'>" +
+            "<tr>" +
+            "<th>Skill</th>" +
+            "<th>Original</th>" +
+            "<th>Gain</th>" +
+            "<th>Bonus</th>" +
+            "<th>Δ</th>" +
+            "</tr>";
+
+        for (const skill of OF_DISPLAY_ORDER) {
+            let original;
+            let gain;
+            let bonus;
+            let diff;
+
+            original = Number(skills[skill] || 0);
+            gain = gains[skill] || 0;
+            bonus = original * (1 + gain);
+            diff = bonus - original;
+            totalDiff += diff;
+
+            html +=
+                `<tr>` +
+                `<td>${skill}</td>` +
+                `<td>${original.toFixed(1)}</td>` +
+                `<td>${gain.toFixed(1)}</td>` +
+                `<td>${bonus.toFixed(1)}</td>` +
+                `<td>${diff.toFixed(1)}</td>` +
+                `</tr>`;
+        }
+
+        html +=
+            `<tr style="font-weight:bold;">` +
+            `<td>Total</td>` +
+            `<td></td><td></td><td></td>` +
+            `<td>${totalDiff.toFixed(1)}</td>` +
+            `</tr>`;
+
+        html += "</table>";
+
+        return { html, total: totalDiff };
+    }
+
+    function buildTacticsTable(skills, playerFp, anchorElement) {
+        const tactical  = getTacticalScoresForPlayer(skills, playerFp);
+        if (!tactical  || !anchorElement) return;
+
+        const { scores } = tactical ;
         const tactics = Object.keys(scores);
         if (!tactics.length) return;
 
@@ -494,18 +540,56 @@
         table.style.marginRight = "auto";
         table.style.marginTop = "8px";
 
-        const header = "<tr><th>Tactic</th><th>Score</th></tr>";
+        const tbody = document.createElement("tbody");
 
-        const body = tactics
-            .map(tactic => {
-                const val = scores[tactic];
-                const formatted = val.toFixed(2);
-                const highlight = (val === maxVal) ? " style=\"color:lightgreen;\"" : "";
-                return `<tr><td>${tactic}</td><td${highlight}>${formatted}</td></tr>`;
-            })
-            .join("");
+        // Header
+        const headerTr = document.createElement("tr");
+        headerTr.innerHTML = "<th>Tactic</th><th>Score</th>";
+        tbody.appendChild(headerTr);
 
-        table.innerHTML = `<tbody>${header}${body}</tbody>`;
+        // Linhas com botão no score
+        for (const tactic of tactics) {
+            const val = scores[tactic];
+            const formatted = val.toFixed(1);
+            const isBest = (val === maxVal);
+
+            const tr = document.createElement("tr");
+
+            const nameTd = document.createElement("td");
+            nameTd.textContent = tactic;
+            tr.appendChild(nameTd);
+
+            const scoreTd = document.createElement("td");
+
+            const btn = document.createElement("button");
+            const result = buildTactialGainsTable(tactic, skills, playerFp);
+
+            btn.type = "button";
+            btn.textContent = result.total.toFixed(1);
+            btn.style.margin = "0";
+            btn.style.padding = "2px 6px";
+            btn.style.fontSize = "11px";
+            btn.className = "fmp-btn btn-yellow small centre";
+
+            if (isBest) {
+                btn.style.fontWeight  = "bold";
+                btn.style.textDecoration = "underline";
+            }
+
+            btn.onclick = () => {
+                uiMessageBox(
+                    "Show Tactical Gains",
+                    result.html
+                );
+            };
+
+            scoreTd.appendChild(btn);
+            tr.appendChild(scoreTd);
+
+            tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
 
         const title = document.createElement("div");
         title.textContent = "Tactical performance by tactic (approx.)";
@@ -520,66 +604,6 @@
         wrapper.appendChild(table);
 
         anchorElement.insertAdjacentElement("afterend", wrapper);
-    }
-
-    // ========================================
-    // DOM helpers – “More information” box
-    // ========================================
-    function buildMoreInfoBox(actionsBoard, data) {
-        const { marketValue, bidInfo, ratingValue } = data;
-
-        const box = document.createElement("div");
-        box.className = "board fmpx box";
-        box.style.flexGrow = 0;
-        box.style.flexBasis = "200px";
-
-        const titleDiv = document.createElement("div");
-        titleDiv.className = "title";
-
-        const mainDiv = document.createElement("div");
-        mainDiv.className = "main";
-        mainDiv.textContent = TEXT.boxTitle;
-
-        titleDiv.appendChild(mainDiv);
-        box.appendChild(titleDiv);
-
-        const infoDiv = document.createElement("div");
-        infoDiv.className = "moreinfo";
-        infoDiv.style.color = "white";
-
-        const lines = [];
-
-        if (marketValue != null) {
-            lines.push(infoLine(TEXT.marketValue, formatNumber(marketValue)));
-            lines.push(infoLine(TEXT.agentValue, formatNumber(marketValue / 2)));
-        }
-
-        if (bidInfo) {
-            const minBid = Math.floor(bidInfo.minimumBid ?? 0);
-            lines.push(infoLine(TEXT.minBid, formatNumber(minBid)));
-
-            if (!bidInfo.isBotTeam && bidInfo.maxBid) {
-                lines.push(infoLine(TEXT.maxBid, formatNumber(bidInfo.maxBid)));
-            }
-        }
-
-        if (ratingValue != null) {
-            lines.push(infoLine(TEXT.rating, ratingValue.toString()));
-        }
-
-        infoDiv.innerHTML = lines.join("<br>");
-        box.appendChild(infoDiv);
-
-        actionsBoard.parentNode.insertBefore(box, actionsBoard);
-    }
-
-    function infoLine(label, value) {
-        return `<span style="color:#fffa33">${label}: </span>${value}`;
-    }
-
-    function formatNumber(num) {
-        if (num == null || isNaN(num)) return "-";
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
     // ========================================
@@ -625,8 +649,8 @@
         const factor = currentRating / base;
 
         const predicted = {};
-        Object.entries(tableRatings).forEach(([pos, value]) => {
-            predicted[pos] = value * factor;
+        Object.entries(tableRatings).forEach(([p, value]) => {
+            predicted[p] = value * factor;
         });
 
         const maxValue = Math.max(...Object.values(predicted));
@@ -637,7 +661,7 @@
         table.style.marginLeft = "auto";
         table.style.marginRight = "auto";
 
-        const header =
+        const headerHtml =
             `<th>${TEXT.positionColumn}</th>` +
             `<th>DC</th>` +
             `<th>DL/DR</th>` +
@@ -649,22 +673,68 @@
             `<th>OML/OMR</th>` +
             `<th>FC</th>`;
 
-        let row = `<td>${TEXT.rating}</td>`;
-        for (const pos of TABLE_POSITIONS) {
-            const val = predicted[pos].toFixed(1);
-            const isCurrent = group.members.includes(pos);
-            const isBest = pos === maxKey && !isCurrent;
+        const tbody = document.createElement("tbody");
+
+        // Header row
+        const headerRow = document.createElement("tr");
+        headerRow.innerHTML = headerHtml;
+        tbody.appendChild(headerRow);
+
+        // Rating row
+        const ratingTr = document.createElement("tr");
+        const ratingFirstTd = document.createElement("td");
+        ratingFirstTd.textContent = TEXT.rating;
+        ratingTr.appendChild(ratingFirstTd);
+
+        for (const p of TABLE_POSITIONS) {
+            const td = document.createElement("td");
+            const val = predicted[p].toFixed(1);
+            const isCurrent = group.members.includes(p);
+            const isBest = p === maxKey && !isCurrent;
 
             if (isBest) {
-                row += `<td style="color:lightgreen">${val}</td>`;
+                td.style.color = "lightgreen";
             } else if (isCurrent) {
-                row += `<td style="color:yellow">${val}</td>`;
-            } else {
-                row += `<td>${val}</td>`;
+                td.style.color = "yellow";
             }
-        }
+            td.textContent = val;
 
-        table.innerHTML = `<tbody><tr>${header}</tr><tr>${row}</tr></tbody>`;
+            ratingTr.appendChild(td);
+        }
+        tbody.appendChild(ratingTr);
+
+        // Gain row
+        const gainTr = document.createElement("tr");
+        const gainFirstTd = document.createElement("td");
+        gainFirstTd.textContent = TEXT.positionGain;
+        gainTr.appendChild(gainFirstTd);
+
+        for (const p of TABLE_POSITIONS) {
+            const td = document.createElement("td");
+            const btn = document.createElement("button");
+
+            const result = buildPositionGainsTable(p, skills);
+
+            btn.type = "button";
+            btn.textContent = result.total.toFixed(1);
+            btn.style.margin = "0";
+            btn.style.padding = "2px 4px";
+            btn.style.fontSize = "11px";
+            btn.className = "fmp-btn btn-yellow small centre";
+
+            btn.onclick = () => {
+                uiMessageBox(
+                    "Show Position Gains",
+                    result.html
+                );
+            };
+
+            td.appendChild(btn);
+            gainTr.appendChild(td);
+        }
+        tbody.appendChild(gainTr);
+
+        table.appendChild(tbody);
 
         const hint = document.createElement("span");
         hint.textContent = TEXT.ratingHint;
@@ -678,6 +748,57 @@
         hint.insertAdjacentElement("afterend", table);
 
         return table;
+    }
+
+    function buildPositionGainsTable(posCode, skills) {
+        const gains = POSITION_GAINS[posCode];
+        if (!gains) return { html: "<div>No gain data</div>", total: 0 };
+
+        let totalDiff = 0;
+
+        let html =
+            "<table class='skilltable' style='margin:auto'>" +
+            "<tr>" +
+            "<th>Skill</th>" +
+            "<th>Original</th>" +
+            "<th>Gain</th>" +
+            "<th>Bonus</th>" +
+            "<th>Δ</th>" +
+            "</tr>";
+
+        for (const skill of OF_DISPLAY_ORDER) {
+            let original;
+            let gain;
+            let bonus;
+            let diff;
+
+            original = Number(skills[skill] || 0);
+            gain = gains[skill] || 0;
+            bonus = original * (1 + gain);
+            diff = bonus - original;
+            totalDiff += diff;
+
+
+            html +=
+                `<tr>` +
+                `<td>${skill}</td>` +
+                `<td>${original.toFixed(1)}</td>` +
+                `<td>${gain.toFixed(1)}</td>` +
+                `<td>${bonus.toFixed(1)}</td>` +
+                `<td>${diff.toFixed(1)}</td>` +
+                `</tr>`;
+        }
+
+        html +=
+            `<tr style="font-weight:bold;">` +
+            `<td>Total</td>` +
+            `<td></td><td></td><td></td>` +
+            `<td>${totalDiff.toFixed(1)}</td>` +
+            `</tr>`;
+
+        html += "</table>";
+
+        return { html, total: totalDiff };
     }
 
     function findPositionGroup(posCode) {
