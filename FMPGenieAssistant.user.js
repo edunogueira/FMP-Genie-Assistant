@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FMP Genie Assistant
 // @namespace    https://github.com/edunogueira/FMP-Genie-Assistant
-// @version      1.1
+// @version      1.2
 // @description  Show extra player info (ID, rating, birthday, talents, position ratings, set pieces, tactics).
 // @match        https://footballmanagerproject.com/Team/Player*
 // @match        https://www.footballmanagerproject.com/Team/Player*
@@ -93,7 +93,7 @@
     // Skills: Pac, Mar, Tak, Tec, Pas, Pos, Cro, Hea, Fin, Lon
     // Values approximated from official gain matrix visualizations
     // ========================================
-    const TACTIC_GAINS = {
+    const AT_TACTIC_GAINS = {
         Fil: {
             DC: { Pac:0.0, Mar:0.0, Tak:0.0, Tec:0.9, Pas:0.8, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.3 },
             DL: { Pac:0.2, Mar:0.0, Tak:0.0, Tec:0.6, Pas:0.7, Pos:0.0, Cro:0.2, Hea:0.0, Fin:0.0, Lon:0.3 },
@@ -148,6 +148,64 @@
             FC: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.7, Fin:0.0, Lon:0.0 },
             FL: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.8, Hea:0.0, Fin:0.0, Lon:0.0 },
             FR: { Pac:0.5, Mar:0.0, Tak:0.0, Tec:0.3, Pas:0.4, Pos:0.0, Cro:0.8, Hea:0.0, Fin:0.0, Lon:0.0 }
+        }
+    };
+
+    const DEF_TACTIC_GAINS = {
+        Fil: {
+            DC: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.0, Mar:0.7, Tak:0.6, Tec:0.0, Pas:0.0, Pos:0.7, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.3, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.3, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.0, Mar:0.7, Tak:0.8, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.4, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.4, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 }
+        },
+        Sho: {
+            DC: { Pac:0.0, Mar:0.5, Tak:0.3, Tec:0.0, Pas:0.0, Pos:0.7, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.3, Mar:0.5, Tak:0.8, Tec:0.0, Pas:0.0, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.3, Mar:0.5, Tak:0.8, Tec:0.0, Pas:0.0, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.0, Mar:0.7, Tak:0.6, Tec:0.0, Pas:0.0, Pos:0.7, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.3, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.3, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.0, Mar:0.7, Tak:0.8, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.4, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.4, Mar:0.7, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.4, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 }
+        },
+        Lon: {
+            DC: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.5, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.5, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.5, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.5, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.5, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.5, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.5, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 }
+        },
+        Cou: {
+            DC: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.8, Mar:0.5, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.8, Mar:0.5, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.8, Mar:0.5, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.8, Mar:0.5, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.8, Mar:0.5, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.8, Mar:0.5, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 }
+        },
+        Win: {
+            DC: { Pac:0.0, Mar:0.5, Tak:0.2, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.8, Fin:0.0, Lon:0.0 },
+            DL: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            DR: { Pac:0.0, Mar:0.5, Tak:0.5, Tec:0.0, Pas:0.0, Pos:0.5, Cro:0.0, Hea:0.5, Fin:0.0, Lon:0.0 },
+            MC: { Pac:0.5, Mar:0.8, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            ML: { Pac:0.5, Mar:0.8, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            MR: { Pac:0.5, Mar:0.8, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FC: { Pac:0.5, Mar:0.8, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FL: { Pac:0.5, Mar:0.8, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 },
+            FR: { Pac:0.5, Mar:0.8, Tak:0.7, Tec:0.0, Pas:0.0, Pos:0.0, Cro:0.0, Hea:0.0, Fin:0.0, Lon:0.0 }
         }
     };
 
@@ -446,32 +504,46 @@
         const zone = fpToTacticZone(fp);
         if (!zone) return null;
 
-        const scores = {};
+        const atkScores = {};
+        const defScores = {};
 
         for (const tactic of TACTICS) {
-            const gainsByZone = TACTIC_GAINS[tactic];
-            if (!gainsByZone) continue;
+            const atkByZone = AT_TACTIC_GAINS[tactic];
+            const defByZone = DEF_TACTIC_GAINS[tactic];
 
-            const gains = gainsByZone[zone];
-            if (!gains) continue;
+            const atkGains = atkByZone ? atkByZone[zone] : null;
+            const defGains = defByZone ? defByZone[zone] : null;
 
-            let total = 0;
-            for (const attr in gains) {
-                const weight = gains[attr];
-                if (!weight) continue;
-                total += (Number(skills[attr] || 0) * weight);
+            if (atkGains) {
+                let totalAtk = 0;
+                for (const attr in atkGains) {
+                    const weight = atkGains[attr];
+                    if (!weight) continue;
+                    totalAtk += Number(skills[attr] || 0) * weight;
+                }
+                atkScores[tactic] = totalAtk;
             }
-            scores[tactic] = total;
+
+            if (defGains) {
+                let totalDef = 0;
+                for (const attr in defGains) {
+                    const weight = defGains[attr];
+                    if (!weight) continue;
+                    totalDef += Number(skills[attr] || 0) * weight;
+                }
+                defScores[tactic] = totalDef;
+            }
         }
 
-        return { zone, scores };
+        return { zone, atkScores, defScores };
     }
 
-    function buildTactialGainsTable(tactic, skills, playerFp) {
+
+    function buildTactialGainsTable(tactic, skills, playerFp, gainsMatrix) {
         const zone = fpToTacticZone(playerFp);
         if (!zone) return { html: "<div>No tactic zone for this position.</div>", total: 0 };
 
-        const gainsByZone = TACTIC_GAINS[tactic];
+        const gainsByZone = gainsMatrix[tactic];
         if (!gainsByZone) return { html: "<div>No gain data for this tactic.</div>", total: 0 };
 
         const gains = gainsByZone[zone];
@@ -490,15 +562,10 @@
             "</tr>";
 
         for (const skill of OF_DISPLAY_ORDER) {
-            let original;
-            let gain;
-            let bonus;
-            let diff;
-
-            original = Number(skills[skill] || 0);
-            gain = gains[skill] || 0;
-            bonus = original * (1 + gain);
-            diff = bonus - original;
+            const original = Number(skills[skill] || 0);
+            const gain = gains[skill] || 0;
+            const bonus = original * (1 + gain);
+            const diff = bonus - original;
             totalDiff += diff;
 
             html +=
@@ -523,16 +590,24 @@
         return { html, total: totalDiff };
     }
 
-    function buildTacticsTable(skills, playerFp, anchorElement) {
-        const tactical  = getTacticalScoresForPlayer(skills, playerFp);
-        if (!tactical  || !anchorElement) return;
 
-        const { scores } = tactical ;
-        const tactics = Object.keys(scores);
+    function buildTacticsTable(skills, playerFp, anchorElement) {
+        const tactical = getTacticalScoresForPlayer(skills, playerFp);
+        if (!tactical || !anchorElement) return;
+
+        const { atkScores, defScores } = tactical;
+
+        const tactics = TACTICS.filter(t => atkScores[t] != null || defScores[t] != null);
         if (!tactics.length) return;
 
-        const values = Object.values(scores);
-        const maxVal = Math.max(...values);
+        // Totais ataque + defesa
+        const totalScores = {};
+        for (const tactic of tactics) {
+            const atkVal = atkScores[tactic] ?? 0;
+            const defVal = defScores[tactic] ?? 0;
+            totalScores[tactic] = atkVal + defVal;
+        }
+        const maxTotal = Math.max(...Object.values(totalScores));
 
         const table = document.createElement("table");
         table.className = "skilltable";
@@ -544,47 +619,74 @@
 
         // Header
         const headerTr = document.createElement("tr");
-        headerTr.innerHTML = "<th>Tactic</th><th>Score</th>";
+        headerTr.innerHTML = "<th>Tactic</th><th>At Score</th><th>Def Score</th><th>Tot Score</th>";
         tbody.appendChild(headerTr);
 
-        // Linhas com botão no score
+        // Rows
         for (const tactic of tactics) {
-            const val = scores[tactic];
-            const formatted = val.toFixed(1);
-            const isBest = (val === maxVal);
+            const atkVal = atkScores[tactic] ?? 0;
+            const defVal = defScores[tactic] ?? 0;
+            const total  = totalScores[tactic];
 
             const tr = document.createElement("tr");
 
+            // Nome da tática
             const nameTd = document.createElement("td");
             nameTd.textContent = tactic;
             tr.appendChild(nameTd);
 
-            const scoreTd = document.createElement("td");
+            // Botão ofensivo
+            const atkTd = document.createElement("td");
+            const atkBtn = document.createElement("button");
+            const atkResult = buildTactialGainsTable(tactic, skills, playerFp, AT_TACTIC_GAINS);
 
-            const btn = document.createElement("button");
-            const result = buildTactialGainsTable(tactic, skills, playerFp);
+            atkBtn.type = "button";
+            atkBtn.textContent = atkResult.total.toFixed(1);
+            atkBtn.style.margin = "0";
+            atkBtn.style.padding = "2px 6px";
+            atkBtn.style.fontSize = "11px";
+            atkBtn.className = "fmp-btn btn-yellow small centre";
 
-            btn.type = "button";
-            btn.textContent = result.total.toFixed(1);
-            btn.style.margin = "0";
-            btn.style.padding = "2px 6px";
-            btn.style.fontSize = "11px";
-            btn.className = "fmp-btn btn-yellow small centre";
-
-            if (isBest) {
-                btn.style.fontWeight  = "bold";
-                btn.style.textDecoration = "underline";
-            }
-
-            btn.onclick = () => {
+            atkBtn.onclick = () => {
                 uiMessageBox(
-                    "Show Tactical Gains",
-                    result.html
+                    "Show Offensive Tactical Gains",
+                    atkResult.html
                 );
             };
 
-            scoreTd.appendChild(btn);
-            tr.appendChild(scoreTd);
+            atkTd.appendChild(atkBtn);
+            tr.appendChild(atkTd);
+
+            // Botão defensivo
+            const defTd = document.createElement("td");
+            const defBtn = document.createElement("button");
+            const defResult = buildTactialGainsTable(tactic, skills, playerFp, DEF_TACTIC_GAINS);
+
+            defBtn.type = "button";
+            defBtn.textContent = defResult.total.toFixed(1);
+            defBtn.style.margin = "0";
+            defBtn.style.padding = "2px 6px";
+            defBtn.style.fontSize = "11px";
+            defBtn.className = "fmp-btn btn-yellow small centre";
+
+            defBtn.onclick = () => {
+                uiMessageBox(
+                    "Show Defensive Tactical Gains",
+                    defResult.html
+                );
+            };
+
+            defTd.appendChild(defBtn);
+            tr.appendChild(defTd);
+
+            // Total (At + Def) com destaque em verde no maior
+            const totalTd = document.createElement("td");
+            totalTd.textContent = total.toFixed(1);
+            if (total === maxTotal) {
+                totalTd.style.color = "lightgreen";
+                totalTd.style.fontWeight = "bold";
+            }
+            tr.appendChild(totalTd);
 
             tbody.appendChild(tr);
         }
