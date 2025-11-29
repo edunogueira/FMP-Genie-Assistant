@@ -190,5 +190,3 @@ It uses only public data already retrieved by the official website.
 ## Credits
 
 The initial foundation of this userscript was inspired by work from **[紫竹FC](https://footballmanagerproject.com/Team/Board/?id=5283)**.
-
-The **FMP Genie Assistant** project expands, refactors, and unifies these ideas into a modern, modular, fully documented, and extended version.
