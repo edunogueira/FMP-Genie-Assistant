@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FMP Genie Assistant
 // @namespace    https://github.com/edunogueira/FMP-Genie-Assistant
-// @version      1.2
+// @version      1.3
 // @description  Show extra player info (ID, rating, birthday, talents, position ratings, set pieces, tactics).
 // @match        https://footballmanagerproject.com/Team/Player*
 // @match        https://www.footballmanagerproject.com/Team/Player*
@@ -324,15 +324,20 @@
 
     function apiGetPlayerData(pid) {
         return new Promise(resolve => {
-            $.getJSON(
-                {
-                    url: "/Team/Player?handler=PlayerData&playerId=" + pid,
-                    datatype: "json",
-                    contentType: "application/json",
-                    type: "GET"
+            $.ajax({
+                type: "GET",
+                url: "/Tools/GetPlayerInfo",
+                data: { playerID: pid },
+                dataType: "json",
+
+                success: function (result) {
+                    resolve(result || null);
                 },
-                res => resolve(res || null)
-            ).fail(() => resolve(null));
+
+                error: function () {
+                    resolve(null);
+                }
+            });
         });
     }
 
@@ -766,13 +771,13 @@
         const headerHtml =
             `<th>${TEXT.positionColumn}</th>` +
             `<th>DC</th>` +
-            `<th>DL/DR</th>` +
+            `<th>D(RL)</th>` +
             `<th>DMC</th>` +
-            `<th>DML/DMR</th>` +
+            `<th>DM(RL)</th>` +
             `<th>MC</th>` +
             `<th>ML/MR</th>` +
             `<th>OMC</th>` +
-            `<th>OML/OMR</th>` +
+            `<th>OM(RL)</th>` +
             `<th>FC</th>`;
 
         const tbody = document.createElement("tbody");
