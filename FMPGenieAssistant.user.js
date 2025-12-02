@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         FMP Genie Assistant
 // @namespace    https://github.com/edunogueira/FMP-Genie-Assistant
-// @version      1.3
-// @description  Show extra player info (ID, rating, birthday, talents, position ratings, set pieces, tactics).
+// @version      1.4
+// @description  Show extra player info (ID, birthday, talents, position ratings, set pieces, tactics).
 // @match        https://footballmanagerproject.com/Team/Player*
 // @match        https://www.footballmanagerproject.com/Team/Player*
 // @grant        none
@@ -25,16 +25,84 @@
     document.head.appendChild(style);
 
     // ========================================
+    // Translation helpers
+    // ========================================
+    /**
+     * Returns translated text from the global `trxt` dictionary if available.
+     * Falls back to the provided default text if the key is missing.
+     * @param {string} key - Translation key.
+     * @param {string} fallback - Fallback text when translation is not found.
+     * @returns {string}
+     */
+    function t(key, fallback) {
+        if (typeof trxt !== "undefined" && trxt[key] != null) {
+            return trxt[key];
+        }
+        return fallback;
+    }
+
+    /**
+     * Returns the label for a given skill code using the translation table.
+     * Falls back to the raw code when no translation is found.
+     * @param {string} code - Skill short code (e.g. "Mar", "Pac").
+     * @returns {string}
+     */
+    function skillLabel(code) {
+        const key = "plSkillNames." + code;
+        return t(key, code);
+    }
+
+    // ========================================
     // Text / labels
     // ========================================
     const TEXT = {
-        rating:         "Rating",
+        rating:         t("player.Rating", "Rating"),
         id:             "ID",
-        birthday:       "Birthday",
-        positionColumn: "Position",
-        ratingHint:     "*For reference only",
-        positionGain:   "Pos. gain",
-        weekday:        ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        birthday:       t("player.Birthday", "Birthday"),
+        positionColumn: t("fp.Position", "Position"),
+        ratingHint:     t("genie.RatingHint", "*For reference only"),
+        positionGain:   t("genie.PosGain", "Pos. gain"),
+        SetPiecesTitle: t("genie.SetPiecesTitle", "Set pieces effectiveness (approx.)"),
+        Tactic:         t("genie.Tactic", "Tactic"),
+
+        AttackScore:    t("scoutsk.Att", "Att") + " " + t("genie.Score", "Score"),
+        DefenseScore:   t("scoutsk.Def", "Def") + " " + t("genie.Score", "Score"),
+        TotalScore:     t("genie.TotalScore", "Tot Score"),
+
+        ShowOffensiveGains:         t("genie.ShowOffensiveGains", "Show Offensive Tactical Gains"),
+        ShowDefensiveGains:         t("genie.ShowDefensiveGains", "Show Defensive Tactical Gains"),
+        TacticalPerformanceByTactic:t("genie.TacticalPerformanceByTactic", "Tactical performance by tactic (approx.)"),
+        ExtraInfoLoaded:            t("genie.ExtraInfoLoaded", "[FMP Genie] Extra info loaded"),
+
+        skill:    t("player.SKILLS", "Skill"),
+        original: t("genie.Original", "Original"),
+        gain:     t("genie.Gain", "Gain"),
+        bonus:    t("genie.Bonus", "Bonus"),
+        delta:    t("genie.Delta", "Δ"),
+        total:    t("genie.Total", "Total"),
+
+        weekday: Array.from({ length: 7 }, (_, i) => trxt["strLongWeekDay." + i])
+    };
+
+    const TACTIC_LABELS = {
+        Fil: t("tactic.Fil", "Through passes"),
+        Sho: t("tactic.Sho", "Short passes"),
+        Lon: t("tactic.Lon", "Long passes"),
+        Cou: t("tactic.Cou", "Counter attack"),
+        Win: t("tactic.Win", "Wings attack")
+    };
+
+    const SET_PIECE_TEXT = {
+        corner:       t("genie.SetPiece.Corner",  "Corner"),
+        freekick:     t("genie.SetPiece.Freekick","Freekick"),
+        direct:       t("genie.SetPiece.DirectFK","Direct FK"),
+        penalty:      t("genie.SetPiece.Penalty", "Penalty"),
+        gkCorner:     t("genie.SetPiece.GKCorner", "Freekick (GK)"),
+        gkPenalty:    t("genie.SetPiece.GKPenalty","Penalty (GK)"),
+        SetPieceType: t("genie.SetPiece.SetPieceType","Set piece type"),
+        BaseScore:    t("genie.SetPiece.BaseScore","Base score"),
+        TalentBonus:  t("genie.SetPiece.TalentBonus","Talent bonus (%)"),
+        FinalScore:   t("genie.SetPiece.FinalScore","Final score")
     };
 
     // ========================================
@@ -42,10 +110,11 @@
     // ========================================
     const GK_SKILLS = ["Han", "One", "Ref", "Aer", "Jum", "Ele", "Kic", "Thr", "Pos", "Sta", "Pac"];
     const OF_SKILLS = ["Mar", "Tak", "Tec", "Pas", "Cro", "Fin", "Hea", "Lon", "Pos", "Sta", "Pac"];
+
     // Display order for outfield attributes (position/tactical gains)
     const OF_DISPLAY_ORDER = ["Sta", "Pac", "Mar", "Tak", "Pos", "Pas", "Cro", "Tec", "Hea", "Fin", "Lon"];
 
-    // rating weights
+    // Rating weights by "base position key"
     const RATING_WEIGHTS = {
         0:  [1.2, 0.7, 1.2, 0.6, 0.7, 0.4, 0.5, 0.5, 0.6, 0.5, 0.4], // GK
         4:  [1.0, 1.0, 0.5, 0.6, 0.2, 0.2, 1.0, 0.3, 1.0, 0.7, 0.8], // DC
@@ -76,6 +145,7 @@
         FC:   { base: 64, members: [64] }
     };
 
+    // Order of positions used in rating table
     const TABLE_POSITIONS = [4, 5, 8, 9, 16, 17, 32, 33, 64];
 
     // ========================================
@@ -211,6 +281,7 @@
 
     const TACTICS = ["Fil", "Sho", "Lon", "Cou", "Win"];
 
+    // Position gain multipliers by position code
     const POSITION_GAINS = {
         // ============================
         // CENTER PLAYERS
@@ -271,45 +342,69 @@
     // ========================================
     // Main flow
     // ========================================
+
+    /**
+     * Main entry point for the script once the page is ready.
+     * Loads player data, decodes skills and injects all extra UI blocks.
+     * @param {string} pid - Player ID from query string.
+     * @param {HTMLTableElement} infoTable - Original info table element.
+     * @param {HTMLElement} skillsContainer - Container element holding skills.
+     */
     async function run(pid, infoTable, skillsContainer) {
         const data = await loadPlayerData(pid);
         if (!data) return;
 
         const { player } = data;
-        const ratingRaw   = player.marketInfo?.rating ?? null;
-        const ratingValue = ratingRaw != null ? ratingRaw / 10 : null;
-        const posCode     = fpToPos(player.fp);
-        const skills      = decodeSkills(player.skills, posCode);
+        const posCode = fpToPos(player.fp);
+        const skills = decodeSkills(player.skills, posCode);
+        const ratingValue = ratingFromSkillObject(skills, player.qi);
 
-        // infotable: ID, rating, birthday
+        // Info table: ID, rating, birthday
         prependRow(infoTable, TEXT.id, playerId);
-        if (ratingValue != null) appendRow(infoTable, TEXT.rating, ratingValue.toString());
+
+        if (ratingValue != null) {
+            appendRow(
+                infoTable,
+                TEXT.rating,
+                `${ratingValue.skills.toFixed(1)} (${ratingValue.qi.toFixed(1)})`,
+                "Calculated with skills (left) and inverted from QI (right)"
+            );
+        }
+
         if (typeof FMP !== "undefined" && typeof FMP.Day0 !== "undefined" && player.birthday != null) {
             appendBirthdayRow(infoTable, player.birthday);
         }
 
-        // talents
-        if (player.pubTalents) fillPublicTalents(player.pubTalents, posCode);
-
-        // position ratings table
-        let ratingTableAnchor = null;
-        if (skills && ratingRaw != null) {
-            ratingTableAnchor = buildRatingTable(skills, posCode, ratingRaw, skillsContainer);
+        // Talents
+        if (player.pubTalents) {
+            fillPublicTalents(player.pubTalents, posCode);
         }
 
-        // set pieces table
+        // Position ratings table
+        let ratingTableAnchor = null;
+        if (skills && ratingValue != null) {
+            ratingTableAnchor = buildRatingTable(skills, posCode, ratingValue, skillsContainer);
+        }
+
+        // Set pieces table
         const spAnchor = ratingTableAnchor || skillsContainer;
         buildSetPiecesTable(skills, player.pubTalents, posCode, spAnchor);
 
-        // tactics table
+        // Tactics table
         buildTacticsTable(skills, player.fp, spAnchor);
 
-        console.log("[FMP Genie] Extra info loaded.", { player, skills, posCode });
+        console.log(TEXT.ExtraInfoLoaded, { player, skills, posCode });
     }
 
     // ========================================
     // Data loading (API wrappers)
     // ========================================
+
+    /**
+     * Loads player extra data from the FMP Tools API.
+     * @param {string} pid - Player ID.
+     * @returns {Promise<{player: object} | null>}
+     */
     async function loadPlayerData(pid) {
         const [playerData] = await Promise.all([
             apiGetPlayerData(pid)
@@ -322,6 +417,11 @@
         };
     }
 
+    /**
+     * Calls /Tools/GetPlayerInfo to retrieve the player JSON payload.
+     * @param {string} pid - Player ID.
+     * @returns {Promise<object|null>}
+     */
     function apiGetPlayerData(pid) {
         return new Promise(resolve => {
             $.ajax({
@@ -344,18 +444,36 @@
     // ========================================
     // DOM helpers – infotable
     // ========================================
+    /**
+     * Prepends a row in the given table with label/value cells.
+     * @param {HTMLTableElement} table
+     * @param {string} label
+     * @param {string} valueHtml
+     */
     function prependRow(table, label, valueHtml) {
         const tr = document.createElement("tr");
         tr.innerHTML = `<th>${label}</th><td>${valueHtml}</td>`;
         table.insertBefore(tr, table.firstChild);
     }
 
-    function appendRow(table, label, valueHtml) {
+    /**
+     * Appends a row in the given table with label/value cells and optional title.
+     * @param {HTMLTableElement} table
+     * @param {string} label
+     * @param {string} valueHtml
+     * @param {string} [title=""]
+     */
+    function appendRow(table, label, valueHtml, title = "") {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<th>${label}</th><td>${valueHtml}</td>`;
+        tr.innerHTML = `<th title="${title}">${label}</th><td title="${title}">${valueHtml}</td>`;
         table.appendChild(tr);
     }
 
+    /**
+     * Appends the birthday row with day index and localized weekday name.
+     * @param {HTMLTableElement} table
+     * @param {number} birthdayIndex - Day index relative to FMP.Day0.
+     */
     function appendBirthdayRow(table, birthdayIndex) {
         const baseDate = new Date(FMP.Day0);
         baseDate.setDate(baseDate.getDate() + birthdayIndex);
@@ -371,6 +489,12 @@
     // ========================================
     // Set pieces helpers / table
     // ========================================
+    /**
+     * Derives the set pieces talent level (1-4) from public talents.
+     * Returns 1 if no public data is available.
+     * @param {object} pubTalents
+     * @returns {number}
+     */
     function getSetPiecesTalent(pubTalents) {
         if (!pubTalents || typeof pubTalents.set === "undefined") {
             return 1;
@@ -378,10 +502,22 @@
         return (pubTalents.set || 0) + 1;
     }
 
+    /**
+     * Returns the percentage bonus for a given talent level.
+     * @param {number} talent
+     * @returns {number}
+     */
     function getSetPiecesTalentBonusPct(talent) {
         return SET_PIECES_TALENT_BONUS[talent] ?? 0.0;
     }
 
+    /**
+     * Builds and injects the set pieces summary table after the given anchor element.
+     * @param {object} skills - Decoded skills object.
+     * @param {object} pubTalents - Public talent info.
+     * @param {number} posCode - Position code (0 = GK).
+     * @param {HTMLElement} anchorElement - Element after which the table will be inserted.
+     */
     function buildSetPiecesTable(skills, pubTalents, posCode, anchorElement) {
         if (!skills || !anchorElement) return;
 
@@ -399,19 +535,19 @@
             const finalPk = baseFk * mult;
 
             rows.push({
-                type: "Freekick (GK)",
+                type: SET_PIECE_TEXT.GKCorner,
                 base: baseFk,
                 bonus: bonusPct,
                 final: finalFk,
-                title: "SPk * (Tec + Cro + 0.5 * Lon)"
+                title: `SPk * (${skillLabel("Tec")} + ${skillLabel("Cro")} + 0.5 * ${skillLabel("Lon")})`
             });
 
             rows.push({
-                type: "Penalty (GK)",
+                type: SET_PIECE_TEXT.GKPenalty,
                 base: baseFk,
                 bonus: bonusPct,
                 final: finalPk,
-                title: "SPk * (Tec + 1.5 * Fin)"
+                title: `SPk * (${skillLabel("Tec")} + 1.5 * ${skillLabel("Fin")})`
             });
         } else {
             // Outfield player set pieces
@@ -426,35 +562,35 @@
             const basePenalty  = Tec + 1.5 * Fin;
 
             rows.push({
-                type: "Corner",
+                type: SET_PIECE_TEXT.corner,
                 base: baseCorner,
                 bonus: bonusPct,
                 final: baseCorner * mult,
-                title: "SPk * (Tec + Cro + 0.5 * Lon)"
+                title: `SPk * (${skillLabel("Tec")} + ${skillLabel("Cro")} + 0.5 * ${skillLabel("Lon")})`
             });
 
             rows.push({
-                type: "Freekick",
+                type: SET_PIECE_TEXT.freekick,
                 base: baseFreekick,
                 bonus: bonusPct,
                 final: baseFreekick * mult,
-                title: "SPk * (Tec + Cro + 0.5 * Lon)"
+                title: `SPk * (${skillLabel("Tec")} + ${skillLabel("Cro")} + 0.5 * ${skillLabel("Lon")})`
             });
 
             rows.push({
-                type: "Direct FK",
+                type: SET_PIECE_TEXT.direct,
                 base: baseDirect,
                 bonus: bonusPct,
                 final: baseDirect * mult,
-                title: "SPk * (Tec + Fin + 0.5 * Lon)"
+                title: `SPk * (${skillLabel("Tec")} + ${skillLabel("Fin")} + 0.5 * ${skillLabel("Lon")})`
             });
 
             rows.push({
-                type: "Penalty",
+                type: SET_PIECE_TEXT.penalty,
                 base: basePenalty,
                 bonus: bonusPct,
                 final: basePenalty * mult,
-                title: "SPk * (Tec + 1.5 * Fin)"
+                title: `SPk * (${skillLabel("Tec")} + 1.5 * ${skillLabel("Fin")})`
             });
         }
 
@@ -465,12 +601,12 @@
         table.style.marginTop = "4px";
 
         const header =
-              "<tr>" +
-              "<th>Set piece type</th>" +
-              "<th>Base score</th>" +
-              "<th>Talent bonus (%)</th>" +
-              "<th>Final score</th>" +
-              "</tr>";
+              `<tr>` +
+              `<th>${SET_PIECE_TEXT.SetPieceType}</th>` +
+              `<th>${SET_PIECE_TEXT.BaseScore}</th>` +
+              `<th>${SET_PIECE_TEXT.TalentBonus}</th>` +
+              `<th>${SET_PIECE_TEXT.FinalScore}</th>` +
+              `</tr>`;
 
         const body = rows
         .map(r => {
@@ -488,7 +624,7 @@
         table.innerHTML = `<tbody>${header}${body}</tbody>`;
 
         const title = document.createElement("div");
-        title.textContent = "Set pieces effectiveness (approx.)";
+        title.textContent = TEXT.SetPiecesTitle
         title.style.textAlign = "center";
         title.style.fontSize = "12px";
         title.style.marginTop = "6px";
@@ -505,6 +641,13 @@
     // ========================================
     // Tactics helpers / table
     // ========================================
+
+    /**
+     * Computes total attack/defense scores per tactic for a given player.
+     * @param {object} skills - Decoded skills.
+     * @param {string} fp - Player FMP position string (e.g. "MC", "DC").
+     * @returns {{zone:string, atkScores:object, defScores:object} | null}
+     */
     function getTacticalScoresForPlayer(skills, fp) {
         const zone = fpToTacticZone(fp);
         if (!zone) return null;
@@ -543,7 +686,14 @@
         return { zone, atkScores, defScores };
     }
 
-
+    /**
+     * Builds a detailed gains breakdown table (offensive or defensive) for a single tactic.
+     * @param {string} tactic - Tactic key (Fil/Sho/Lon/Cou/Win).
+     * @param {object} skills - Decoded skills.
+     * @param {string} playerFp - Player FMP position string.
+     * @param {object} gainsMatrix - AT_TACTIC_GAINS or DEF_TACTIC_GAINS.
+     * @returns {{html:string, total:number}}
+     */
     function buildTactialGainsTable(tactic, skills, playerFp, gainsMatrix) {
         const zone = fpToTacticZone(playerFp);
         if (!zone) return { html: "<div>No tactic zone for this position.</div>", total: 0 };
@@ -559,11 +709,11 @@
         let html =
             "<table class='skilltable' style='margin:auto'>" +
             "<tr>" +
-            "<th>Skill</th>" +
-            "<th>Original</th>" +
-            "<th>Gain</th>" +
-            "<th>Bonus</th>" +
-            "<th>Δ</th>" +
+            `<th>${TEXT.skill}</th>` +
+            `<th>${TEXT.original}</th>` +
+            `<th>${TEXT.gain}</th>` +
+            `<th>${TEXT.bonus}</th>` +
+            `<th>${TEXT.delta}</th>` +
             "</tr>";
 
         for (const skill of OF_DISPLAY_ORDER) {
@@ -571,31 +721,38 @@
             const gain = gains[skill] || 0;
             const bonus = original * (1 + gain);
             const diff = bonus - original;
+            const skillText = skillLabel(skill);
             totalDiff += diff;
 
             html +=
-                `<tr>` +
-                `<td>${skill}</td>` +
+                "<tr>" +
+                `<td>${skillText}</td>` +
                 `<td>${original.toFixed(1)}</td>` +
                 `<td>${gain.toFixed(1)}</td>` +
                 `<td>${bonus.toFixed(1)}</td>` +
                 `<td>${diff.toFixed(1)}</td>` +
-                `</tr>`;
+                "</tr>";
         }
 
         html +=
             `<tr style="font-weight:bold;">` +
-            `<td>Total</td>` +
-            `<td></td><td></td><td></td>` +
+            `<td>${TEXT.total}</td>` +
+            "<td></td><td></td><td></td>" +
             `<td>${totalDiff.toFixed(1)}</td>` +
-            `</tr>`;
+            "</tr>";
 
         html += "</table>";
 
         return { html, total: totalDiff };
     }
 
-
+    /**
+     * Builds and injects the main tactics comparison table (attack/defense/total per tactic).
+     * Each cell opens a detailed breakdown in a modal via uiMessageBox.
+     * @param {object} skills - Decoded skills.
+     * @param {string} playerFp - Player FMP position string.
+     * @param {HTMLElement} anchorElement - Element after which the table will be inserted.
+     */
     function buildTacticsTable(skills, playerFp, anchorElement) {
         const tactical = getTacticalScoresForPlayer(skills, playerFp);
         if (!tactical || !anchorElement) return;
@@ -605,7 +762,7 @@
         const tactics = TACTICS.filter(t => atkScores[t] != null || defScores[t] != null);
         if (!tactics.length) return;
 
-        // Totais ataque + defesa
+        // Total attack + defense per tactic
         const totalScores = {};
         for (const tactic of tactics) {
             const atkVal = atkScores[tactic] ?? 0;
@@ -624,7 +781,11 @@
 
         // Header
         const headerTr = document.createElement("tr");
-        headerTr.innerHTML = "<th>Tactic</th><th>At Score</th><th>Def Score</th><th>Tot Score</th>";
+        headerTr.innerHTML =
+            `<th>${TEXT.Tactic}</th>` +
+            `<th>${TEXT.AttackScore}</th>` +
+            `<th>${TEXT.DefenseScore}</th>` +
+            `<th>${TEXT.TotalScore}</th>`;
         tbody.appendChild(headerTr);
 
         // Rows
@@ -635,12 +796,12 @@
 
             const tr = document.createElement("tr");
 
-            // Nome da tática
+            // Tactic name
             const nameTd = document.createElement("td");
-            nameTd.textContent = tactic;
+            nameTd.textContent = TACTIC_LABELS[tactic] || tactic;
             tr.appendChild(nameTd);
 
-            // Botão ofensivo
+            // Offensive button
             const atkTd = document.createElement("td");
             const atkBtn = document.createElement("button");
             const atkResult = buildTactialGainsTable(tactic, skills, playerFp, AT_TACTIC_GAINS);
@@ -651,10 +812,9 @@
             atkBtn.style.padding = "2px 6px";
             atkBtn.style.fontSize = "11px";
             atkBtn.className = "fmp-btn btn-yellow small centre";
-
             atkBtn.onclick = () => {
                 uiMessageBox(
-                    "Show Offensive Tactical Gains",
+                    TEXT.ShowOffensiveGains,
                     atkResult.html
                 );
             };
@@ -662,7 +822,7 @@
             atkTd.appendChild(atkBtn);
             tr.appendChild(atkTd);
 
-            // Botão defensivo
+            // Defensive button
             const defTd = document.createElement("td");
             const defBtn = document.createElement("button");
             const defResult = buildTactialGainsTable(tactic, skills, playerFp, DEF_TACTIC_GAINS);
@@ -673,10 +833,9 @@
             defBtn.style.padding = "2px 6px";
             defBtn.style.fontSize = "11px";
             defBtn.className = "fmp-btn btn-yellow small centre";
-
             defBtn.onclick = () => {
                 uiMessageBox(
-                    "Show Defensive Tactical Gains",
+                    TEXT.ShowDefensiveGains,
                     defResult.html
                 );
             };
@@ -684,7 +843,7 @@
             defTd.appendChild(defBtn);
             tr.appendChild(defTd);
 
-            // Total (At + Def) com destaque em verde no maior
+            // Total (Atk + Def) – highlight the best
             const totalTd = document.createElement("td");
             totalTd.textContent = total.toFixed(1);
             if (total === maxTotal) {
@@ -699,7 +858,7 @@
         table.appendChild(tbody);
 
         const title = document.createElement("div");
-        title.textContent = "Tactical performance by tactic (approx.)";
+        title.textContent = TEXT.TacticalPerformanceByTactic;
         title.style.textAlign = "center";
         title.style.fontSize = "12px";
         title.style.marginTop = "6px";
@@ -716,6 +875,13 @@
     // ========================================
     // Talents rendering
     // ========================================
+
+    /**
+     * Fills the public talents row with talent levels (1-4) for the current player.
+     * Keeps the original FMP layout and only appends numbers.
+     * @param {object} pubTalent - Public talents from API.
+     * @param {number} posCode - Player position code (0 = GK).
+     */
     function fillPublicTalents(pubTalent, posCode) {
         const talentsDiv = document.getElementsByClassName("talents")[0];
         if (!talentsDiv) return;
@@ -723,12 +889,13 @@
         const tds = talentsDiv.getElementsByTagName("td");
         if (!tds.length) return;
 
-        // Keep original layout: append numbers only
         if (posCode === 0) {
+            // Goalkeeper: agi, set, str
             if (tds[0]) tds[0].textContent += (pubTalent.agi + 1);
             if (tds[1]) tds[1].textContent += (pubTalent.set + 1);
             if (tds[2]) tds[2].textContent += (pubTalent.str + 1);
         } else {
+            // Outfield: ada, agi, set, str
             if (tds[0]) tds[0].textContent += (pubTalent.ada + 1);
             if (tds[1]) tds[1].textContent += (pubTalent.agi + 1);
             if (tds[2]) tds[2].textContent += (pubTalent.set + 1);
@@ -739,29 +906,34 @@
     // ========================================
     // Rating table (position comparison)
     // ========================================
+
+    /**
+     * Builds the rating comparison table by position and injects it after the skills container.
+     * Also computes and highlights best position and position gains (button per column).
+     * @param {object} skills - Decoded skills.
+     * @param {number} posCode - Player base position code.
+     * @param {{skills:number, qi:number}} rawRating - Rating summary object from ratingFromSkillObject.
+     * @param {HTMLElement} skillsContainer - Skills container element.
+     * @returns {HTMLTableElement|null}
+     */
     function buildRatingTable(skills, posCode, rawRating, skillsContainer) {
         const group = findPositionGroup(posCode);
         if (!group || !skillsContainer) return null;
         if (rawRating == null) return null;
 
         const tableRatings = {};
+        let bestRating = 0;
+        let bestPos = null;
+
         for (const p of TABLE_POSITIONS) {
-            tableRatings[p] = calcRatingForPos(skills, p);
+            const rating = calcRatingForPos(skills, p);
+            tableRatings[p] = rating;
+
+            if (rating > bestRating) {
+                bestRating = rating;
+                bestPos = p;
+            }
         }
-
-        const base = tableRatings[group.base];
-        if (!base) return null;
-
-        const currentRating = rawRating / 10;
-        const factor = currentRating / base;
-
-        const predicted = {};
-        Object.entries(tableRatings).forEach(([p, value]) => {
-            predicted[p] = value * factor;
-        });
-
-        const maxValue = Math.max(...Object.values(predicted));
-        const maxKey = Number(Object.keys(predicted).find(k => predicted[k] === maxValue));
 
         const table = document.createElement("table");
         table.className = "skilltable";
@@ -770,15 +942,15 @@
 
         const headerHtml =
             `<th>${TEXT.positionColumn}</th>` +
-            `<th>DC</th>` +
-            `<th>D(RL)</th>` +
-            `<th>DMC</th>` +
-            `<th>DM(RL)</th>` +
-            `<th>MC</th>` +
-            `<th>ML/MR</th>` +
-            `<th>OMC</th>` +
-            `<th>OM(RL)</th>` +
-            `<th>FC</th>`;
+            `<th>${trxt["fp.name.DC"]}</th>` +
+            `<th>${trxt["fp.name.DL"]}/${trxt["fp.name.DR"]}</th>` +
+            `<th>${trxt["fp.name.DMC"]}</th>` +
+            `<th>${trxt["fp.name.DML"]}/${trxt["fp.name.DMR"]}</th>` +
+            `<th>${trxt["fp.name.MC"]}</th>` +
+            `<th>${trxt["fp.name.ML"]}/${trxt["fp.name.MR"]}</th>` +
+            `<th>${trxt["fp.name.OMC"]}</th>` +
+            `<th>${trxt["fp.name.OML"]}/${trxt["fp.name.OMR"]}</th>` +
+            `<th>${trxt["fp.name.FC"]}</th>`;
 
         const tbody = document.createElement("tbody");
 
@@ -795,9 +967,9 @@
 
         for (const p of TABLE_POSITIONS) {
             const td = document.createElement("td");
-            const val = predicted[p].toFixed(1);
-            const isCurrent = group.members.includes(p);
-            const isBest = p === maxKey && !isCurrent;
+            const val = tableRatings[p].toFixed(1);
+            const isCurrent = Number(p) === Number(posCode);
+            const isBest = Number(p) === Number(bestPos) && !isCurrent;
 
             if (isBest) {
                 td.style.color = "lightgreen";
@@ -810,7 +982,7 @@
         }
         tbody.appendChild(ratingTr);
 
-        // Gain row
+        // Position gain row
         const gainTr = document.createElement("tr");
         const gainFirstTd = document.createElement("td");
         gainFirstTd.textContent = TEXT.positionGain;
@@ -828,10 +1000,9 @@
             btn.style.padding = "2px 4px";
             btn.style.fontSize = "11px";
             btn.className = "fmp-btn btn-yellow small centre";
-
             btn.onclick = () => {
                 uiMessageBox(
-                    "Show Position Gains",
+                    t("genie.ShowPositionGains", "Show Position Gains"),
                     result.html
                 );
             };
@@ -857,6 +1028,12 @@
         return table;
     }
 
+    /**
+     * Builds the position gains table (per skill) for a given position code.
+     * @param {number} posCode
+     * @param {object} skills
+     * @returns {{html:string, total:number}}
+     */
     function buildPositionGainsTable(posCode, skills) {
         const gains = POSITION_GAINS[posCode];
         if (!gains) return { html: "<div>No gain data</div>", total: 0 };
@@ -866,55 +1043,49 @@
         let html =
             "<table class='skilltable' style='margin:auto'>" +
             "<tr>" +
-            "<th>Skill</th>" +
-            "<th>Original</th>" +
-            "<th>Gain</th>" +
-            "<th>Bonus</th>" +
-            "<th>Δ</th>" +
+            `<th>${TEXT.skill}</th>` +
+            `<th>${TEXT.original}</th>` +
+            `<th>${TEXT.gain}</th>` +
+            `<th>${TEXT.bonus}</th>` +
+            `<th>${TEXT.delta}</th>` +
             "</tr>";
 
         for (const skill of OF_DISPLAY_ORDER) {
-            let original;
-            let gain;
-            let bonus;
-            let diff;
-
-            original = Number(skills[skill] || 0);
-            gain = gains[skill] || 0;
-            bonus = original * (1 + gain);
-            diff = bonus - original;
+            const original = Number(skills[skill] || 0);
+            const gain = gains[skill] || 0;
+            const bonus = original * (1 + gain);
+            const diff = bonus - original;
+            const skillText = skillLabel(skill);
             totalDiff += diff;
 
-
             html +=
-                `<tr>` +
-                `<td>${skill}</td>` +
+                "<tr>" +
+                `<td>${skillText}</td>` +
                 `<td>${original.toFixed(1)}</td>` +
                 `<td>${gain.toFixed(1)}</td>` +
                 `<td>${bonus.toFixed(1)}</td>` +
                 `<td>${diff.toFixed(1)}</td>` +
-                `</tr>`;
+                "</tr>";
         }
 
         html +=
             `<tr style="font-weight:bold;">` +
-            `<td>Total</td>` +
-            `<td></td><td></td><td></td>` +
+            `<td>${TEXT.total}</td>` +
+            "<td></td><td></td><td></td>" +
             `<td>${totalDiff.toFixed(1)}</td>` +
-            `</tr>`;
+            "</tr>";
 
         html += "</table>";
 
         return { html, total: totalDiff };
     }
 
-    function findPositionGroup(posCode) {
-        for (const group of Object.values(POSITION_GROUPS)) {
-            if (group.members.includes(posCode)) return group;
-        }
-        return null;
-    }
-
+    /**
+     * Calculates the weighted rating for a given position code using RATING_WEIGHTS.
+     * @param {object} skills - Decoded skills.
+     * @param {number} posCode - Position code (0 for GK, etc.).
+     * @returns {number}
+     */
     function calcRatingForPos(skills, posCode) {
         const weights = RATING_WEIGHTS[posCode];
         if (!weights) return 0;
@@ -927,9 +1098,52 @@
         return wSum ? weighted / wSum : 0;
     }
 
+    /**
+     * Computes rating based on skills and QI:
+     * - skills: sum of integer part of 11 main skills, divided by 10 (decimal rating from skills).
+     * - qi: rating derived from inverting the official QI formula (approximate).
+     * @param {object} p - Decoded skills object.
+     * @param {number} qi - Player QI.
+     * @returns {{skills:number, qi:number}}
+     */
+    function ratingFromSkillObject(p, qi) {
+        let ratingInt = 0;
+
+        // Inverted QI formula → sumSkills → divided by 100 to keep it in a rating-like scale
+        const ratingQI = (Math.pow(qi, 1 / 5) / 0.0045) / 100;
+
+        for (const k of OF_DISPLAY_ORDER) {
+            ratingInt += Math.floor(p[k]);
+        }
+
+        return {
+            skills: ratingInt / 10,
+            qi: ratingQI
+        };
+    }
+
+    /**
+     * Finds the POSITION_GROUPS entry that contains the given position code.
+     * @param {number} posCode
+     * @returns {{base:number, members:number[]} | null}
+     */
+    function findPositionGroup(posCode) {
+        for (const group of Object.values(POSITION_GROUPS)) {
+            if (group.members.includes(posCode)) return group;
+        }
+        return null;
+    }
+
     // ========================================
     // Decode skills / position mapping
     // ========================================
+
+    /**
+     * Decodes the binary skills string into a skills object.
+     * @param {string} binsk - Base64 encoded binary skills.
+     * @param {number} posCode - Position code (0 = GK).
+     * @returns {object|null}
+     */
     function decodeSkills(binsk, posCode) {
         if (!binsk) return null;
 
@@ -954,17 +1168,37 @@
         return sk;
     }
 
+    /**
+     * Maps FMP fp string (GK/MC/DC...) to internal numeric position code.
+     * @param {string} fp - FMP position code.
+     * @returns {number}
+     */
     function fpToPos(fp) {
         const map = {
-            GK: 0, DC: 4, DL: 5, DR: 6,
-            DMC: 8, DML: 9, DMR: 10,
-            MC: 16, ML: 17, MR: 18,
-            OMC: 32, OML: 33, OMR: 34,
+            GK: 0,
+            DC: 4,
+            DL: 5,
+            DR: 6,
+            DMC: 8,
+            DML: 9,
+            DMR: 10,
+            MC: 16,
+            ML: 17,
+            MR: 18,
+            OMC: 32,
+            OML: 33,
+            OMR: 34,
             FC: 64
         };
         return map[fp] ?? -1;
     }
 
+    /**
+     * Maps FMP fp string to the tactic zone used in AT/DEF gain matrices.
+     * GK has no tactical zone and returns null.
+     * @param {string} fp - FMP position string.
+     * @returns {string|null}
+     */
     function fpToTacticZone(fp) {
         switch (fp) {
             case "GK":  return null;
@@ -986,3 +1220,4 @@
     }
 
 })();
+
