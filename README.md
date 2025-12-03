@@ -5,6 +5,8 @@ It recalculates positional ratings, estimates positional and tactical gains, mod
 
 The script behaves like an in-browser “Genie Scout” for FMP.
 
+[Install](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPGenieAssistant.user.js)
+
 ---
 
 ## Features
