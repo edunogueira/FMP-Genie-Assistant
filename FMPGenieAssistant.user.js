@@ -1,16 +1,39 @@
 // ==UserScript==
 // @name         FMP Genie Assistant
 // @namespace    https://github.com/edunogueira/FMP-Genie-Assistant
-// @version      1.4
+// @version      1.5
 // @description  Show extra player info (ID, birthday, talents, position ratings, set pieces, tactics).
-// @match        https://footballmanagerproject.com/Team/Player*
-// @match        https://www.footballmanagerproject.com/Team/Player*
+// @include      https://footballmanagerproject.com/*
+// @include      https://www.footballmanagerproject.com/*
 // @grant        none
 // @license      MIT
 // ==/UserScript==
 
 (function () {
     "use strict";
+    var configs = getStorage(localStorage.getItem("FMPGenieAssistant.configs")) || {};
+    const API_SUPPORTERS_URL = "https://footballmanagerproject.com/Economy/Supporters?handler=SupportersData";
+
+    function getStorage(storageConfigs) {
+        const defaultConfigs = {
+            "Supporters": 'checked',
+            "Player": 'checked',
+        };
+
+        return (storageConfigs == null || storageConfigs == '[]') ? defaultConfigs : JSON.parse(storageConfigs);
+    }
+    var page = document.URL;
+    function checkAndExecute(config, func) {
+        if ((config) || (typeof config === 'undefined')) {
+            func();
+        }
+    }
+
+    if (page.includes('/Economy/Supporters')) {
+        checkAndExecute(configs["Supporters"], supportersPage);
+    } else if (page.includes('/Team/Player?')) {
+        checkAndExecute(configs["Player"], playerPage);
+    }
 
     // ========================================
     // Global CSS overrides
@@ -60,7 +83,7 @@
         id:             "ID",
         birthday:       t("player.Birthday", "Birthday"),
         positionColumn: t("fp.Position", "Position"),
-        ratingHint:     t("genie.RatingHint", "*For reference only"),
+        ratingHint:     t("genie.RatingHint", "*For reference only (FMP Genie Assistant)"),
         positionGain:   t("genie.PosGain", "Pos. gain"),
         SetPiecesTitle: t("genie.SetPiecesTitle", "Set pieces effectiveness (approx.)"),
         Tactic:         t("genie.Tactic", "Tactic"),
@@ -97,8 +120,8 @@
         freekick:     t("genie.SetPiece.Freekick","Freekick"),
         direct:       t("genie.SetPiece.DirectFK","Direct FK"),
         penalty:      t("genie.SetPiece.Penalty", "Penalty"),
-        gkCorner:     t("genie.SetPiece.GKCorner", "Freekick (GK)"),
-        gkPenalty:    t("genie.SetPiece.GKPenalty","Penalty (GK)"),
+        GKCorner:     t("genie.SetPiece.GKCorner", "Freekick (GK)"),
+        GKPenalty:    t("genie.SetPiece.GKPenalty","Penalty (GK)"),
         SetPieceType: t("genie.SetPiece.SetPieceType","Set piece type"),
         BaseScore:    t("genie.SetPiece.BaseScore","Base score"),
         TalentBonus:  t("genie.SetPiece.TalentBonus","Talent bonus (%)"),
@@ -322,22 +345,24 @@
     // ========================================
     // Loader – wait for player DOM to be ready
     // ========================================
-    let started = false;
-    const observer = new MutationObserver(() => {
-        if (started) return;
+    function playerPage() {
+        let started = false;
+        const observer = new MutationObserver(() => {
+            if (started) return;
 
-        const infoTable = document.getElementsByClassName("infotable")[0];
-        const skillsContainer = document.querySelector(".d-flex.flex-wrap.justify-content-around");
+            const infoTable = document.getElementsByClassName("infotable")[0];
+            const skillsContainer = document.querySelector(".d-flex.flex-wrap.justify-content-around");
 
-        if (infoTable && infoTable.firstChild && skillsContainer) {
-            started = true;
-            observer.disconnect();
-            run(playerId, infoTable, skillsContainer)
-                .catch(e => console.error("[FMP Genie] Error:", e));
-        }
-    });
+            if (infoTable && infoTable.firstChild && skillsContainer) {
+                started = true;
+                observer.disconnect();
+                run(playerId, infoTable, skillsContainer)
+                    .catch(e => console.error("[FMP Genie] Error:", e));
+            }
+        });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
 
     // ========================================
     // Main flow
@@ -475,7 +500,11 @@
      * @param {number} birthdayIndex - Day index relative to FMP.Day0.
      */
     function appendBirthdayRow(table, birthdayIndex) {
-        const baseDate = new Date(FMP.Day0);
+        const today = new Date(fmpDay(FMP.Date.Today()));
+
+        const baseDate = new Date(fmpDay(fmpToday()));
+
+        const aa = FMP.Day0.getDate();
         baseDate.setDate(baseDate.getDate() + birthdayIndex);
         const weekday = TEXT.weekday[baseDate.getDay()] || "";
 
@@ -1115,6 +1144,12 @@
         for (const k of OF_DISPLAY_ORDER) {
             ratingInt += Math.floor(p[k]);
         }
+        if (isNaN(ratingInt)) {
+            ratingInt = 0;
+            for (const k of GK_SKILLS) {
+                ratingInt += Math.floor(p[k]);
+            }
+        }
 
         return {
             skills: ratingInt / 10,
@@ -1217,6 +1252,121 @@
             case "OMR": return "FR";
             default:    return null;
         }
+    }
+
+    function calculateStadiumSuggestion_ModelA(supportersCount) {
+        // Model A: practical, higher revenue, less dependence on weather.a
+        const idealCapacity = Math.round(supportersCount * 1.5);
+        const vip = Math.round(supportersCount * 0.025);
+
+        const remaining = idealCapacity - vip;
+
+        const covered = Math.round(remaining * 0.35);
+        const sitting = Math.round(remaining * 0.35);
+        const standing = Math.max(0, remaining - covered - sitting);
+
+        return {
+            model: "A",
+            idealCapacity,
+            vip,
+            covered,
+            sitting,
+            standing
+        };
+    }
+
+    function calculateStadiumSuggestion_ModelB(supportersCount) {
+        // Model B: faithful to the HC/MC/LC distribution of the guide
+        const idealCapacity = Math.round(supportersCount * 1.5);
+        const vip = Math.round(supportersCount * 0.025);
+
+        const remaining = idealCapacity - vip;
+
+        const covered = Math.round(remaining * 0.25);     // 25%
+        const sitting = Math.round(remaining * 0.375);    // 37.5%
+        const standing = Math.max(0, remaining - covered - sitting); // ~37.5%
+
+        return {
+            model: "B",
+            idealCapacity,
+            vip,
+            covered,
+            sitting,
+            standing
+        };
+    }
+
+
+    function renderAfterRow(suggestion) {
+        const moodTd = document.querySelector("#supporters-mood");
+        if (!moodTd) return;
+
+        const moodRow = moodTd.closest("tr");
+        if (!moodRow) return;
+
+        // evita duplicado
+        if (document.getElementById("stadium-suggestion-row")) return;
+
+        const A = calculateStadiumSuggestion_ModelA(suggestion);
+        const B = calculateStadiumSuggestion_ModelB(suggestion);
+
+
+        const newRow = document.createElement("tr");
+        newRow.id = "stadium-suggestion-row";
+        newRow.classList.add("logo-info");
+
+        const td1 = document.createElement("td");
+        td1.innerHTML = `<i class="fmp-icons fmp-stadium"></i>`;
+
+        const td2 = document.createElement("td");
+        td2.style.verticalAlign = "middle";
+        td2.innerHTML = `
+                <div class="caption">Stadium Suggestion (FMP Genie Assistant)</div>
+                <div class="value" title="Model A: practical, higher revenue, less dependence on weather.
+                2.5% VIP, 35% covered, 35% sitting, 30% standing"><b>Model A (Stable/Profit):</div>
+                <div class="small">VIP: ${A.vip}</div>
+                <div class="small">Covered: ${A.covered}</div>
+                <div class="small">Sitting: ${A.sitting}</div>
+                <div class="small">Standing: ${A.standing}</div>
+                <br>
+                <div class="value" title="Model B: faithful to the HC/MC/LC distribution of the guide.
+                2.5% VIP, 25% covered, 37.5% sitting, 37.5% standing"><b>Model B (HC/MC/LC Guide):</div>
+                <div class="small">VIP: ${B.vip}</div>
+                <div class="small">Covered: ${B.covered}</div>
+                <div class="small">Sitting: ${B.sitting}</div>
+                <div class="small">Standing: ${B.standing}</div>
+            </div>
+            <br><div class="small" title="A good stadium size could be the one that can contain all the supporters of your team plus a 50% extra space.">
+            Ideal capacity: ${A.idealCapacity}</div>
+        `;
+
+        newRow.appendChild(td1);
+        newRow.appendChild(td2);
+
+        moodRow.insertAdjacentElement("afterend", newRow);
+    }
+
+    async function supportersPage() {
+        try {
+            const res = await fetch(API_SUPPORTERS_URL, { credentials: "include" });
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const supportersCount = data?.supporters?.count;
+            if (!supportersCount) return;
+
+            //const suggestion = calculateStadiumSuggestion(supportersCount);
+            renderAfterRow(supportersCount);
+
+        } catch (err) {
+            console.error("Stadium Suggestion Error:", err);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
     }
 
 })();
