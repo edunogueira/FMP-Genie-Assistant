@@ -22,7 +22,7 @@ Key features:
 * Renders directly using the native table
 * Real-time progress indicator during execution
 
-[Install](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPSearchAllFreeAgentPlayers.user.js)
+[Install](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/refs/heads/main/FMPSearchAllFreeAgentPlayers.user.js)
 
 ---
 
