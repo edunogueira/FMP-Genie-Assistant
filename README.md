@@ -7,6 +7,23 @@ The script behaves like an in-browser “Genie Scout” for FMP.
 
 [Install](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPGenieAssistant.user.js)
 
+
+**Search all free agent players**
+
+It allows scanning all countries in a single run, automatically sending search requests for each nationality based on the current filters (age, skills, positions, etc.), aggregating all results, and rendering them in the existing table.
+
+The script eliminates the need to manually search country-by-country and provides a unified, deduplicated player list.
+
+Key features:
+
+* Bulk search across all nationalities
+* Uses current UI filters (no hardcoded values)
+* Aggregates and deduplicates results
+* Renders directly using the native table
+* Real-time progress indicator during execution
+
+[Install](https://raw.githubusercontent.com/edunogueira/FMP-Genie-Assistant/main/FMPSearchAllFreeAgentPlayers.user.js)
+
 ---
 
 ## Features
@@ -164,14 +181,6 @@ git clone https://github.com/edunogueira/FMP-Genie-Assistant.git
 cd FMP-Genie-Assistant
 ```
 
-### Recommended structure
-
-```
-FMP-Genie-Assistant/
-  ├── FMPGenieAssistant.user.js
-  ├── README.md
-  └── docs/
-```
 
 ### Local testing
 
